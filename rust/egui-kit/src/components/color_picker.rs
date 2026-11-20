@@ -72,12 +72,13 @@ impl<'a> Widget for ColorPicker<'a> {
                 if ui.is_rect_visible(sv_rect) {
                     let pure_hue = Color32::from(Hsva::new(hsv.h, 1.0, 1.0, 1.0));
                     let mut mesh = Mesh::default();
-                    let tl = mesh.colored_vertex(sv_rect.left_top(), Color32::WHITE);
-                    let tr = mesh.colored_vertex(sv_rect.right_top(), pure_hue);
-                    let bl = mesh.colored_vertex(sv_rect.left_bottom(), Color32::BLACK);
-                    let br = mesh.colored_vertex(sv_rect.right_bottom(), Color32::BLACK);
-                    mesh.add_triangle(tl, tr, br);
-                    mesh.add_triangle(tl, br, bl);
+                    let i = mesh.vertices.len() as u32;
+                    mesh.colored_vertex(sv_rect.left_top(), Color32::WHITE);
+                    mesh.colored_vertex(sv_rect.right_top(), pure_hue);
+                    mesh.colored_vertex(sv_rect.left_bottom(), Color32::BLACK);
+                    mesh.colored_vertex(sv_rect.right_bottom(), Color32::BLACK);
+                    mesh.add_triangle(i, i + 1, i + 3);
+                    mesh.add_triangle(i, i + 3, i + 2);
                     ui.painter().add(mesh);
                     ui.painter().rect_stroke(sv_rect, Rounding::same(4.0), Stroke::new(1.0, tokens.border));
 
@@ -157,12 +158,13 @@ impl<'a> Widget for ColorPicker<'a> {
 
                         let solid = Color32::from(Hsva::new(hsv.h, hsv.s, hsv.v, 1.0));
                         let mut mesh = Mesh::default();
-                        let l0 = mesh.colored_vertex(a_rect.left_top(), Color32::TRANSPARENT);
-                        let l1 = mesh.colored_vertex(a_rect.left_bottom(), Color32::TRANSPARENT);
-                        let r0 = mesh.colored_vertex(a_rect.right_top(), solid);
-                        let r1 = mesh.colored_vertex(a_rect.right_bottom(), solid);
-                        mesh.add_triangle(l0, r0, r1);
-                        mesh.add_triangle(l0, r1, l1);
+                        let i = mesh.vertices.len() as u32;
+                        mesh.colored_vertex(a_rect.left_top(), Color32::TRANSPARENT);
+                        mesh.colored_vertex(a_rect.left_bottom(), Color32::TRANSPARENT);
+                        mesh.colored_vertex(a_rect.right_top(), solid);
+                        mesh.colored_vertex(a_rect.right_bottom(), solid);
+                        mesh.add_triangle(i, i + 2, i + 3);
+                        mesh.add_triangle(i, i + 3, i + 1);
                         ui.painter().add(mesh);
                         ui.painter().rect_stroke(a_rect, Rounding::same(3.0), Stroke::new(1.0, tokens.border));
 

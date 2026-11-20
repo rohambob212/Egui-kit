@@ -53,11 +53,11 @@ impl<'a, T: PartialEq> Widget for Radio<'a, T> {
                 };
 
                 let clicked = circle_resp.clicked() || label_resp.as_ref().is_some_and(|r| r.clicked());
+                let selected = *self.current == self.value;
                 if clicked && !self.disabled {
                     *self.current = self.value;
                 }
-
-                let selected = *self.current == self.value;
+                let selected = selected || (clicked && !self.disabled);
                 let sel_t = ease_out_cubic(ui.ctx().animate_bool_with_time(circle_resp.id.with("sel"), selected, 0.15));
                 let hover_t = ui.ctx().animate_bool_with_time(
                     circle_resp.id.with("hov"),

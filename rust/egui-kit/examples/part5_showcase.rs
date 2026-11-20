@@ -55,13 +55,14 @@ impl eframe::App for Part5Demo {
                 });
 
                 ui.add_space(10.0);
+                let left_pct = self.split_ratio * 100.0;
                 Resizable::horizontal("p5_split")
                     .ratio(&mut self.split_ratio)
                     .height(140.0)
                     .show(
                         ui,
                         |left| {
-                            left.kit_label(format!("Left ({:.0}%)", self.split_ratio * 100.0));
+                            left.kit_label(format!("Left ({left_pct:.0}%)"));
                         },
                         |right| {
                             Scrollable::vertical("p5_log").max_height(110.0).show(right, |ui| {

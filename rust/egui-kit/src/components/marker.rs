@@ -53,7 +53,7 @@ impl Widget for Marker {
         let (fill, fg) = match self.tone {
             Variant::Success => (tokens.success, tokens.primary_foreground),
             Variant::Warning => (tokens.warning, tokens.primary_foreground),
-            Variant::Destructive => (tokens.destructive, tokens.destructive_foreground),
+            Variant::Destructive => (tokens.destructive, tokens.primary_foreground),
             Variant::Secondary => (tokens.secondary, tokens.secondary_foreground),
             _ => (tokens.primary, tokens.primary_foreground),
         };

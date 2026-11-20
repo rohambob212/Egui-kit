@@ -4,12 +4,24 @@ use crate::theme::active_theme;
 use crate::tokens::ease_out_cubic;
 use egui::{Area, Frame, Id, Margin, Order, Pos2, Response, Rounding, Stroke, Ui};
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 struct HoverCardState {
     open: bool,
     enter_time: Option<f64>,
     leave_time: Option<f64>,
     last_card_rect: egui::Rect,
+}
+
+impl Default for HoverCardState {
+    fn default() -> Self {
+        Self {
+            open: false,
+            enter_time: None,
+            leave_time: None,
+            // egui::Rect has no Default impl in 0.30
+            last_card_rect: egui::Rect::NOTHING,
+        }
+    }
 }
 
 /// Delayed hover preview card for user profiles, link previews, and symbol documentation.

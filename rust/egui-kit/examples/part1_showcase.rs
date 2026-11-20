@@ -25,7 +25,7 @@ impl eframe::App for Part1Showcase {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         Root::show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.add(Label::new("egui-kit Part 1 Showcase").size(Size::Lg).strong());
+                ui.add(Label::new("egui-kit Part 1 Showcase").size(Size::Lg).strong(true));
                 ui.add(ThemePicker::new("showcase_theme"));
             });
             ui.separator();

@@ -330,7 +330,7 @@ pub mod prelude {
         Question, Questionnaire, Radio, Rating, Resizable, ResponseTooltipExt, Root, Scrollable,
         Select, Sheet, SheetSide, Shimmer, SimpleDate, SimpleTime, Skeleton, Slider, Speech,
         Spinner, Stepper, Switch, Tabs, TabsResponse, TabsVariant, Tag, TagVariant, TextArea,
-        ThemePicker, TimeField, Toggle, Tooltip,
+        ThemePicker, TimeField, ToastItem, ToastTone, Toggle, Tooltip,
     };
     pub use crate::{active_theme, init, set_theme, Orientation, Size, ThemeId, ThemeMode, ThemeTokens, UiExt, Variant};
 }
