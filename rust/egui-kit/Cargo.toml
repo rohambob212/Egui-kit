@@ -1,0 +1,38 @@
+[package]
+name = "egui-kit"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Idiomatic egui.rs port of gpui-kit components, tokens, and 36 editor themes."
+keywords = ["egui", "ui", "widgets", "gpui-kit", "theme"]
+categories = ["gui"]
+
+[dependencies]
+egui = "0.30"
+
+[dev-dependencies]
+eframe = "0.30"
+
+[[example]]
+name = "part1_showcase"
+path = "examples/part1_showcase.rs"
+
+[[example]]
+name = "part2_showcase"
+path = "examples/part2_showcase.rs"
+
+[[example]]
+name = "part3_showcase"
+path = "examples/part3_showcase.rs"
+
+[[example]]
+name = "part4_showcase"
+path = "examples/part4_showcase.rs"
+
+[[example]]
+name = "part5_showcase"
+path = "examples/part5_showcase.rs"
+
+[[example]]
+name = "part6_showcase"
+path = "examples/part6_showcase.rs"
