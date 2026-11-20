@@ -176,7 +176,8 @@ impl<'a> Widget for Input<'a> {
                 .frame(false),
         );
 
-        ui.ctx().data_mut(|d| d.insert_temp(base_id.with("focused"), edit_resp.has_focus()));
+        let edit_focused = edit_resp.has_focus();
+        ui.ctx().data_mut(|d| d.insert_temp(base_id.with("focused"), edit_focused));
         if cleared {
             resp.mark_changed();
         }

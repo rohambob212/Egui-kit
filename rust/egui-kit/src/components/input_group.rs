@@ -159,7 +159,8 @@ impl InputGroup {
         child_ui.set_enabled(!self.disabled);
 
         let inner_resp = add_input(&mut child_ui);
-        ui.ctx().data_mut(|d| d.insert_temp(base_id.with("focused"), inner_resp.has_focus()));
+        let inner_focused = inner_resp.has_focus();
+        ui.ctx().data_mut(|d| d.insert_temp(base_id.with("focused"), inner_focused));
         resp = resp.union(inner_resp);
         resp
     }

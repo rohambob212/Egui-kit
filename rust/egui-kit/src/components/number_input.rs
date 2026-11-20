@@ -184,8 +184,9 @@ impl<'a> Widget for NumberInput<'a> {
             draft = format!("{:.*}", self.precision, *self.value);
         }
 
+        let edit_focused = edit_resp.has_focus();
         ui.ctx().data_mut(|d| {
-            d.insert_temp(edit_state_id, edit_resp.has_focus());
+            d.insert_temp(edit_state_id, edit_focused);
             d.insert_temp(buf_id, draft);
         });
 

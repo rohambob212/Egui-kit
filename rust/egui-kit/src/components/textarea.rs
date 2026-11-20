@@ -123,7 +123,8 @@ impl<'a> Widget for TextArea<'a> {
             })
             .inner;
 
-        ui.ctx().data_mut(|d| d.insert_temp(id.with("focused"), edit_resp.has_focus()));
+        let edit_focused = edit_resp.has_focus();
+        ui.ctx().data_mut(|d| d.insert_temp(id.with("focused"), edit_focused));
 
         if let Some(max) = self.max_chars {
             let count_col = if over_limit {
