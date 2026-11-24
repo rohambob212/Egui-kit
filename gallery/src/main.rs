@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui_kit::{KitUi, Theme, Variant};
+use egui_kit::{KitUi, Theme, Toasts, Variant};
 
 fn main() -> eframe::Result<()> {
     let height: f32 = std::env::var("GALLERY_H").ok().and_then(|h| h.parse().ok()).unwrap_or(760.0);
@@ -51,6 +51,7 @@ fn main() -> eframe::Result<()> {
                 pop_open: false,
                 sheet_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("sheet"),
                 slide: 0,
+                toasts: Toasts::default(),
             }))
         }),
     )
@@ -96,6 +97,7 @@ struct App {
     pop_open: bool,
     sheet_open: bool,
     slide: usize,
+    toasts: Toasts,
 }
 
 const PAGES: &[(Page, &str)] = &[
@@ -113,7 +115,7 @@ impl eframe::App for App {
             Theme::light().apply(&ctx);
         }
 
-        egui::Panel::top("top").show(ui, |ui| {
+        ui.toolbar("top", |ui| {
             let t = Theme::get(ui.ctx());
             ui.horizontal(|ui| {
                 ui.heading("egui-kit");
@@ -126,6 +128,8 @@ impl eframe::App for App {
                 });
             });
         });
+
+        ui.status_bar("status", "egui-kit 0.1", "ready");
 
         egui::Panel::left("nav").resizable(false).exact_size(190.0).show(ui, |ui| {
             ui.add_space(6.0);
@@ -144,6 +148,10 @@ impl eframe::App for App {
                 Page::Overlays => overlays_page(ui, self),
             });
         });
+
+        let mut toasts = std::mem::take(&mut self.toasts);
+        toasts.show(ui);
+        self.toasts = toasts;
     }
 }
 
@@ -360,6 +368,10 @@ fn overlays_page(ui: &mut egui::Ui, app: &mut App) {
         if ui.kit_button("Command palette").clicked() {
             app.pal_open = true;
         }
+        if ui.button("Toast").clicked() {
+            let now = ui.input(|i| i.time);
+            app.toasts.push("Saved to the project.", Variant::Primary, now, 2.5);
+        }
         if ui.button("Dialog").clicked() {
             app.dlg_open = true;
         }
@@ -380,6 +392,12 @@ fn overlays_page(ui: &mut egui::Ui, app: &mut App) {
         None => "no command picked yet".to_owned(),
     });
     ui.add_space(14.0);
+
+    ui.horizontal(|ui| {
+        ui.link("Documentation");
+        ui.dropdown_button("dd", "Deploy", &["Preview", "Production"]).1.map(|i| app.last_cmd = Some(i));
+    });
+    ui.add_space(10.0);
 
     ui.label("Carousel");
     ui.carousel(&mut app.slide, 5);

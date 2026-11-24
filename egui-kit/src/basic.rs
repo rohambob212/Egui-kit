@@ -1301,3 +1301,130 @@ pub fn carousel(ui: &mut Ui, index: &mut usize, count: usize) -> Response {
     })
     .response
 }
+
+/// Clickable link-styled text.
+pub fn link(ui: &mut Ui, text: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    ui.add(egui::Label::new(RichText::new(text).color(theme.primary).underline()).sense(Sense::click()))
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+/// Split button: primary action plus a caret that opens `items`. Returns (main, picked).
+pub fn dropdown_button(ui: &mut Ui, id: &str, label: &str, items: &[&str]) -> (Response, Option<usize>) {
+    let theme = Theme::get(ui.ctx());
+    let open_id = egui::Id::unique(id).with("dropdown_open");
+    let mut open = ui.ctx().data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
+    let main = ui.add(
+        Button::new(RichText::new(label).color(theme.on_primary))
+            .fill(theme.primary)
+            .min_size(egui::vec2(0.0, 30.0)),
+    );
+    let caret = ui.button("v");
+    if caret.clicked() {
+        open = !open;
+    }
+    let mut picked = None;
+    if open {
+        let area = egui::Area::new(egui::Id::unique(id).with("dropdown_area"))
+            .fixed_pos(caret.rect.left_bottom() + egui::vec2(0.0, 4.0))
+            .order(egui::Order::Foreground)
+            .show(ui.ctx(), |ui| {
+                egui::Frame::new()
+                    .fill(theme.panel)
+                    .stroke(Stroke::new(1.0, theme.border))
+                    .corner_radius(CornerRadius::same(theme.radius as u8))
+                    .inner_margin(4.0)
+                    .show(ui, |ui| {
+                        for (i, item) in items.iter().enumerate() {
+                            if ui.add(egui::Button::new(*item).min_size(egui::vec2(140.0, 26.0))).clicked() {
+                                picked = Some(i);
+                            }
+                        }
+                    });
+            });
+        let clicked_outside = ui.input(|i| i.pointer.any_click())
+            && ui.input(|i| i.pointer.interact_pos()).is_some_and(|p| !area.response.rect.contains(p));
+        if picked.is_some() || clicked_outside {
+            open = false;
+        }
+    }
+    ui.ctx().data_mut(|d| d.insert_temp(open_id, open));
+    (main, picked)
+}
+
+/// Top toolbar panel inside a `Ui`.
+pub fn toolbar<R>(ui: &mut Ui, id: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
+    let theme = Theme::get(ui.ctx());
+    egui::Panel::top(id)
+        .frame(
+            egui::Frame::new()
+                .fill(theme.panel)
+                .inner_margin(egui::Margin::symmetric(8, 4)),
+        )
+        .show(ui, add)
+        .inner
+}
+
+/// Bottom status bar with a left and a right region.
+pub fn status_bar(ui: &mut Ui, id: &str, left: &str, right: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    egui::Panel::bottom(id)
+        .frame(
+            egui::Frame::new()
+                .fill(theme.panel)
+                .inner_margin(egui::Margin::symmetric(8, 3)),
+        )
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(left).small().color(theme.text_muted));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new(right).small().color(theme.text_muted));
+                });
+            });
+        })
+        .response
+}
+
+/// Auto-expiring toast stack, drawn bottom-right.
+#[derive(Default)]
+pub struct Toasts {
+    items: Vec<(String, Variant, f64)>,
+}
+
+impl Toasts {
+    /// Show a toast for `ttl` seconds.
+    pub fn push(&mut self, text: &str, variant: Variant, now: f64, ttl: f64) {
+        self.items.push((text.to_owned(), variant, now + ttl));
+    }
+
+    pub fn show(&mut self, ui: &mut Ui) {
+        let theme = Theme::get(ui.ctx());
+        let now = ui.input(|i| i.time);
+        self.items.retain(|(_, _, until)| *until > now);
+        if self.items.is_empty() {
+            return;
+        }
+        egui::Area::new(egui::Id::unique("egui_kit_toasts"))
+            .anchor(egui::Align2::RIGHT_BOTTOM, [-16.0, -16.0])
+            .order(egui::Order::Foreground)
+            .show(ui.ctx(), |ui| {
+                for (text, variant, _) in &self.items {
+                    let accent = match variant {
+                        Variant::Primary => theme.primary,
+                        Variant::Danger => theme.danger,
+                        _ => theme.border,
+                    };
+                    egui::Frame::new()
+                        .fill(theme.panel)
+                        .stroke(Stroke::new(1.0, accent))
+                        .corner_radius(CornerRadius::same(theme.radius as u8))
+                        .inner_margin(8.0)
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(text).color(theme.text));
+                        });
+                    ui.add_space(4.0);
+                }
+            });
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+    }
+}

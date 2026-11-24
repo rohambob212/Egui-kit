@@ -87,6 +87,14 @@ pub trait KitUi {
     fn sheet(&mut self, id: &str, open: &mut bool, body: impl FnOnce(&mut Ui));
     /// Slide carousel with dots.
     fn carousel(&mut self, index: &mut usize, count: usize) -> Response;
+    /// Clickable link-styled text.
+    fn link(&mut self, text: &str) -> Response;
+    /// Split action + caret menu: returns (main click, picked item).
+    fn dropdown_button(&mut self, id: &str, label: &str, items: &[&str]) -> (Response, Option<usize>);
+    /// Top toolbar panel.
+    fn toolbar<R>(&mut self, id: &str, add: impl FnOnce(&mut Ui) -> R) -> R;
+    /// Bottom status bar with left and right regions.
+    fn status_bar(&mut self, id: &str, left: &str, right: &str) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -260,5 +268,21 @@ impl KitUi for Ui {
 
     fn carousel(&mut self, index: &mut usize, count: usize) -> Response {
         basic::carousel(self, index, count)
+    }
+
+    fn link(&mut self, text: &str) -> Response {
+        basic::link(self, text)
+    }
+
+    fn dropdown_button(&mut self, id: &str, label: &str, items: &[&str]) -> (Response, Option<usize>) {
+        basic::dropdown_button(self, id, label, items)
+    }
+
+    fn toolbar<R>(&mut self, id: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
+        basic::toolbar(self, id, add)
+    }
+
+    fn status_bar(&mut self, id: &str, left: &str, right: &str) -> Response {
+        basic::status_bar(self, id, left, right)
     }
 }
