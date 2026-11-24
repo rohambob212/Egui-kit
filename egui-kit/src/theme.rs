@@ -34,9 +34,9 @@ impl Theme {
             is_dark: false,
             bg: C(255, 255, 255),
             panel: C(250, 250, 251),
-            surface: C(244, 244, 246),
-            surface_hover: C(236, 236, 239),
-            border: C(224, 224, 229),
+            surface: C(242, 242, 245),
+            surface_hover: C(230, 230, 236),
+            border: C(216, 216, 223),
             text: C(24, 24, 27),
             text_muted: C(113, 113, 122),
             primary: C(37, 99, 235),
@@ -52,11 +52,11 @@ impl Theme {
     pub fn dark() -> Self {
         Self {
             is_dark: true,
-            bg: C(18, 18, 21),
-            panel: C(24, 24, 28),
-            surface: C(32, 32, 37),
-            surface_hover: C(44, 44, 50),
-            border: C(56, 56, 64),
+            bg: C(13, 13, 16),
+            panel: C(20, 20, 24),
+            surface: C(30, 30, 36),
+            surface_hover: C(44, 44, 52),
+            border: C(64, 64, 76),
             text: C(244, 244, 245),
             text_muted: C(161, 161, 170),
             primary: C(59, 130, 246),
@@ -107,7 +107,8 @@ impl Theme {
 
         let mut style = (*ctx.style_of(et)).clone();
         style.spacing.item_spacing = egui::vec2(8.0, 8.0);
-        style.spacing.button_padding = egui::vec2(10.0, 5.0);
+        style.spacing.button_padding = egui::vec2(12.0, 6.0);
+        style.animation_time = 0.14; // hover/press transitions, not just instant state swaps
         style.text_styles = [
             (egui::TextStyle::Heading, egui::FontId::proportional(20.0)),
             (egui::TextStyle::Body, egui::FontId::proportional(14.0)),

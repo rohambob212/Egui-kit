@@ -6,12 +6,43 @@ use egui::{pos2, vec2, CornerRadius, Rect, Stroke, StrokeKind, UiBuilder};
 /// Small pill label in the primary color.
 pub fn badge(ui: &mut Ui, text: String) -> Response {
     let t = Theme::get(ui.ctx());
-    let galley = ui.painter().layout_no_wrap(text, FontId::proportional(11.0), t.on_primary);
+    let fg = readable_on(t.primary, &t);
+    let galley = ui.painter().layout_no_wrap(text, FontId::proportional(11.0), fg);
     let pad = egui::vec2(6.0, 2.0);
     let (rect, resp) = ui.allocate_exact_size(galley.size() + pad * 2.0, egui::Sense::hover());
     ui.painter().rect_filled(rect, t.radius, t.primary);
-    ui.painter().galley(rect.min + pad, galley, t.on_primary);
+    ui.painter().galley(rect.min + pad, galley, fg);
     resp
+}
+
+/// Text colour that stays readable on `fill`: the theme's text, or the page
+/// background colour when the fill is light (WCAG-ish, whichever wins).
+pub fn readable_on(fill: Color32, t: &Theme) -> Color32 {
+    let ratio_text = contrast_ratio(t.text, fill);
+    let ratio_bg = contrast_ratio(t.bg, fill);
+    if ratio_bg > ratio_text {
+        t.bg
+    } else {
+        t.text
+    }
+}
+
+/// WCAG contrast ratio, 1.0..21.0.
+pub fn contrast_ratio(a: Color32, b: Color32) -> f32 {
+    let lum = |c: Color32| {
+        let f = |v: u8| {
+            let s = v as f32 / 255.0;
+            if s <= 0.03928 {
+                s / 12.92
+            } else {
+                ((s + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * f(c.r()) + 0.7152 * f(c.g()) + 0.0722 * f(c.b())
+    };
+    let (x, y) = (lum(a), lum(b));
+    let (hi, lo) = if x > y { (x, y) } else { (y, x) };
+    (hi + 0.05) / (lo + 0.05)
 }
 
 fn variant_fill(t: &Theme, v: Variant) -> Color32 {
@@ -19,6 +50,8 @@ fn variant_fill(t: &Theme, v: Variant) -> Color32 {
         Variant::Default => t.surface,
         Variant::Primary => t.primary,
         Variant::Danger => t.danger,
+        Variant::Warning => t.warning,
+        Variant::Success => t.success,
         Variant::Ghost => Color32::TRANSPARENT,
         Variant::Outline => Color32::TRANSPARENT,
     }
@@ -27,21 +60,32 @@ fn variant_fill(t: &Theme, v: Variant) -> Color32 {
 /// Themed button with one of the shared variants.
 pub fn button(ui: &mut Ui, text: &str, v: Variant) -> Response {
     let t = Theme::get(ui.ctx());
+    let fill = variant_fill(&t, v);
+    let fg = if matches!(v, Variant::Ghost | Variant::Outline) {
+        t.text
+    } else {
+        readable_on(fill, &t)
+    };
+    if v == Variant::Ghost {
+        // transparent at rest, but keeps egui's hover/press feedback
+        return ui
+            .scope(|ui| {
+                ui.visuals_mut().widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
+                ui.visuals_mut().widgets.inactive.bg_stroke = egui::Stroke::NONE;
+                ui.add(Button::new(RichText::new(text).color(fg)).min_size(egui::vec2(0.0, 30.0)))
+            })
+            .inner;
+    }
     let stroke = match v {
         Variant::Outline => egui::Stroke::new(1.0, t.border),
         _ => egui::Stroke::NONE,
     };
-    let fg = match v {
-        Variant::Primary | Variant::Danger => t.on_primary,
-        _ => t.text,
-    };
-    let mut b = Button::new(RichText::new(text).color(fg))
-        .fill(variant_fill(&t, v))
-        .stroke(stroke);
-    if matches!(v, Variant::Primary | Variant::Danger) {
-        b = b.min_size(egui::vec2(0.0, 30.0));
-    }
-    ui.add(b)
+    ui.add(
+        Button::new(RichText::new(text).color(fg))
+            .fill(fill)
+            .stroke(stroke)
+            .min_size(egui::vec2(0.0, 30.0)),
+    )
 }
 
 pub fn tag(ui: &mut Ui, text: String) -> Response {
@@ -154,12 +198,17 @@ pub fn avatar(ui: &mut Ui, name: &str, size: f32) -> Response {
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         painter.circle_filled(rect.center(), size * 0.5, color);
+        painter.circle_stroke(
+            rect.center(),
+            size * 0.5 - 0.5,
+            egui::Stroke::new(1.0, theme.bg.gamma_multiply(0.35)),
+        );
         painter.text(
             rect.center(),
             egui::Align2::CENTER_CENTER,
             initials,
             FontId::proportional(size * 0.4),
-            theme.on_primary,
+            readable_on(color, &theme),
         );
     }
     response.on_hover_text(name)
@@ -169,50 +218,81 @@ pub fn alert(ui: &mut Ui, text: &str, variant: Variant) -> Response {
     let theme = Theme::get(ui.ctx());
     let (accent, glyph) = match variant {
         Variant::Danger => (theme.danger, "!"),
+        Variant::Warning => (theme.warning, "!"),
+        Variant::Success => (theme.success, "i"),
         Variant::Primary => (theme.primary, "i"),
         _ => (theme.text_muted, "i"),
     };
-    let pad = egui::vec2(10.0, 8.0);
-    let (bar, glyph_w) = (3.0, 16.0);
-    let font = FontId::proportional(14.0);
+    let pad = egui::vec2(12.0, 10.0);
+    let badge = 18.0;
+    let font = FontId::proportional(13.0);
     let width = ui.available_width();
-    let wrap = (width - bar - pad.x * 2.0 - glyph_w).max(0.0);
-    let galley = ui
-        .painter()
-        .layout(text.to_owned(), font.clone(), theme.text, wrap);
-    let size = egui::vec2(width, galley.size().y + pad.y * 2.0);
-    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    let text_left = pad.x + badge + 10.0;
+    let galley = ui.painter().layout(
+        text.to_owned(),
+        font,
+        theme.text,
+        (width - text_left - pad.x).max(1.0),
+    );
+    let size = egui::vec2(width, galley.size().y.max(badge) + pad.y * 2.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
-        let radius: egui::CornerRadius = theme.radius.into();
-        let body_radius = egui::CornerRadius {
-            nw: 0,
-            sw: 0,
-            ..radius
-        };
-        let body = rect.with_min_x(rect.left() + bar);
+        let radius = CornerRadius::same(theme.radius as u8);
         let painter = ui.painter();
-        painter.rect_filled(rect, radius, accent);
-        painter.rect_filled(body, body_radius, theme.surface);
-        painter.rect_filled(body, body_radius, accent.gamma_multiply(0.15));
-        let origin = body.min + pad;
-        painter.text(origin, egui::Align2::LEFT_TOP, glyph, font, accent);
-        painter.galley(origin + egui::vec2(glyph_w, 0.0), galley, theme.text);
+        painter.rect_filled(rect, radius, accent.gamma_multiply(0.14));
+        painter.rect_stroke(rect, radius, Stroke::new(1.0, accent.gamma_multiply(0.45)), StrokeKind::Inside);
+        let center = egui::pos2(rect.left() + pad.x + badge * 0.5, rect.center().y);
+        painter.circle_filled(center, badge * 0.5, accent);
+        painter.text(center, Align2::CENTER_CENTER, glyph, FontId::proportional(12.0), theme.on_primary);
+        painter.galley(
+            egui::pos2(rect.left() + text_left, rect.center().y - galley.size().y / 2.0),
+            galley,
+            theme.text,
+        );
     }
     response
 }
 
 pub fn skeleton(ui: &mut Ui, width: f32, height: f32) -> Response {
     let theme = Theme::get(ui.ctx());
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), Sense::hover());
     if ui.is_rect_visible(rect) {
         ui.ctx().request_repaint();
-        let wave = (ui.input(|i| i.time) * 3.0).sin() as f32;
-        let alpha = 0.7 + 0.3 * wave;
-        ui.painter()
-            .rect_filled(rect, theme.radius, theme.surface.gamma_multiply(alpha));
+        let radius = CornerRadius::same((height * 0.35).clamp(2.0, 8.0) as u8);
+        let painter = ui.painter();
+        painter.rect_filled(rect, radius, theme.surface_hover);
+        let phase = (ui.input(|i| i.time) * 0.6) as f32 % 1.0;
+        let band_w = (rect.width() * 0.35).max(24.0);
+        let x = rect.left() - band_w + phase * (rect.width() + band_w);
+        let band = egui::Rect::from_min_size(
+            egui::pos2(x, rect.top()),
+            egui::vec2(band_w, rect.height()),
+        )
+        .intersect(rect);
+        if band.width() > 0.0 {
+            painter.rect_filled(band, radius, theme.border.gamma_multiply(0.7));
+        }
     }
     response
+}
+
+/// Labeled bar with the value on the right: `ui.progress_labeled(0.4, "upload")`.
+pub fn progress_labeled(ui: &mut Ui, value: f32, label: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let mut resp = ui
+        .horizontal(|ui| {
+            ui.label(RichText::new(label).small().color(theme.text_muted));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    RichText::new(format!("{:.0}%", value.clamp(0.0, 1.0) * 100.0))
+                        .small()
+                        .color(theme.text_muted),
+                );
+            });
+        })
+        .response;
+    resp |= progress(ui, value);
+    resp
 }
 
 pub fn rating(ui: &mut Ui, id: &str, value: &mut u8, max: u8) -> Response {
@@ -353,11 +433,13 @@ pub fn pagination(ui: &mut Ui, page: &mut usize, total_pages: usize) -> Response
 pub fn tabs(ui: &mut Ui, labels: &[&str], selected: &mut usize) -> Response {
     let theme = Theme::get(ui.ctx());
     let padding = vec2(10.0, 6.0);
+    let anim_id = egui::Id::unique("kit-tabs-underline");
+    let sel_f = ui.ctx().animate_value_with_time(anim_id, *selected as f32, 0.18);
 
     let inner = ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 2.0;
         let mut last: Option<Response> = None;
-        let mut items = Vec::with_capacity(labels.len());
-
+        let mut rects = Vec::with_capacity(labels.len());
         for (i, label) in labels.iter().enumerate() {
             let galley = ui.painter().layout_no_wrap(
                 (*label).to_owned(),
@@ -366,33 +448,39 @@ pub fn tabs(ui: &mut Ui, labels: &[&str], selected: &mut usize) -> Response {
             );
             let (rect, mut response) =
                 ui.allocate_exact_size(galley.size() + 2.0 * padding, Sense::click());
-
             if response.clicked() && *selected != i {
                 *selected = i;
                 response.mark_changed();
             }
-
-            items.push((rect, galley));
-            last = Some(response);
+            rects.push(rect);
+            last = Some(response.on_hover_cursor(egui::CursorIcon::PointingHand));
         }
 
-        for (i, (rect, galley)) in items.into_iter().enumerate() {
-            if !ui.is_rect_visible(rect) {
+        for (i, rect) in rects.iter().enumerate() {
+            if !ui.is_rect_visible(*rect) {
                 continue;
             }
-
-            let active = *selected == i;
-            let color = if active { theme.text } else { theme.text_muted };
+            let color = if *selected == i { theme.text } else { theme.text_muted };
+            let galley = ui.painter().layout_no_wrap(
+                labels[i].to_owned(),
+                FontId::proportional(14.0),
+                color,
+            );
             ui.painter().galley(rect.min + padding, galley, color);
+        }
 
-            if active {
-                let underline = Rect::from_min_max(
-                    pos2(rect.left(), rect.bottom() - 2.0),
-                    rect.right_bottom(),
-                );
-                ui.painter()
-                    .rect_filled(underline, CornerRadius::ZERO, theme.primary);
-            }
+        if !rects.is_empty() {
+            let lo = (sel_f.floor() as usize).min(rects.len() - 1);
+            let hi = (lo + 1).min(rects.len() - 1);
+            let t = (sel_f - lo as f32).clamp(0.0, 1.0);
+            let x0 = egui::lerp(rects[lo].left()..=rects[hi].left(), t);
+            let x1 = egui::lerp(rects[lo].right()..=rects[hi].right(), t);
+            let y = rects[lo].bottom() - 2.0;
+            ui.painter().rect_filled(
+                egui::Rect::from_min_max(egui::pos2(x0, y), egui::pos2(x1, y + 2.0)),
+                CornerRadius::ZERO,
+                theme.primary,
+            );
         }
 
         last
@@ -444,10 +532,15 @@ pub fn accordion(
         painter.galley(glyph_pos, glyph_galley, theme.text_muted);
     }
 
-    if *open {
+    let t = ui.ctx().animate_bool(response.id, *open);
+    if *open || t > 0.01 {
         let mut body_rect = ui.available_rect_before_wrap();
         body_rect.min.x += 12.0;
-        ui.scope_builder(UiBuilder::new().max_rect(body_rect), |ui| body(ui));
+        body_rect.min.y += (1.0 - t) * 8.0; // slides down as it opens
+        ui.scope_builder(UiBuilder::new().max_rect(body_rect), |ui| {
+            ui.multiply_opacity(t);
+            body(ui);
+        });
     }
 
     response
@@ -823,7 +916,8 @@ pub fn hover_card(ui: &mut Ui, content: impl FnOnce(&mut Ui), add: impl FnOnce(&
 
 /// Selectable row for lists; returns true when picked.
 pub fn list_item(ui: &mut Ui, selected: bool, label: &str) -> bool {
-    ui.selectable_label(selected, label).clicked()
+    let width = ui.available_width().max(40.0);
+    ui.add_sized([width, 24.0], egui::Button::selectable(selected, label)).clicked()
 }
 
 const MONTHS: [&str; 12] = [
@@ -1128,7 +1222,11 @@ pub fn palette(ui: &mut Ui, id: &str, open: &mut bool, query: &mut String, items
         .min(hits.len().saturating_sub(1));
     let last = hits.len().saturating_sub(1);
     let mut picked = None;
+    let anim = egui::Id::unique(id).with("anim");
+    let t = ui.ctx().animate_bool(anim, true);
     let modal = egui::Modal::new(egui::Id::unique(id)).show(ui.ctx(), |ui| {
+        ui.multiply_opacity(t);
+        ui.add_space((1.0 - t) * 8.0);
         ui.set_width(440.0);
         let search = ui.add(
             egui::TextEdit::singleline(query)
@@ -1178,7 +1276,11 @@ pub fn dialog(ui: &mut Ui, id: &str, open: &mut bool, title: &str, body: impl Fn
     if !*open {
         return ui.allocate_response(egui::Vec2::ZERO, Sense::hover());
     }
+    let anim = egui::Id::unique(id).with("anim");
+    let t = ui.ctx().animate_bool(anim, true);
     let modal = egui::Modal::new(egui::Id::unique(id)).show(ui.ctx(), |ui| {
+        ui.multiply_opacity(t);
+        ui.add_space((1.0 - t) * 8.0); // rises into place
         ui.set_width(360.0);
         ui.horizontal(|ui| {
             ui.heading(title);
@@ -1203,10 +1305,12 @@ pub fn popover(ui: &mut Ui, id: &str, anchor: &Response, open: &mut bool, body: 
         return;
     }
     let theme = Theme::get(ui.ctx());
+    let t = ui.ctx().animate_bool(egui::Id::unique(id).with("anim"), true);
     let area = egui::Area::new(egui::Id::unique(id))
-        .fixed_pos(anchor.rect.left_bottom() + egui::vec2(0.0, 6.0))
+        .fixed_pos(anchor.rect.left_bottom() + egui::vec2(0.0, 6.0 + (1.0 - t) * 6.0))
         .order(egui::Order::Foreground)
         .show(ui.ctx(), |ui| {
+            ui.multiply_opacity(t);
             egui::Frame::new()
                 .fill(theme.panel)
                 .stroke(Stroke::new(1.0, theme.border))
@@ -1230,10 +1334,12 @@ pub fn sheet(ui: &mut Ui, id: &str, open: &mut bool, body: impl FnOnce(&mut Ui))
     }
     let theme = Theme::get(ui.ctx());
     let mut close = false;
+    let t = ui.ctx().animate_bool(egui::Id::unique(id).with("anim"), true);
     egui::Area::new(egui::Id::unique(id))
-        .anchor(egui::Align2::RIGHT_TOP, [-10.0, 10.0])
+        .anchor(egui::Align2::RIGHT_TOP, [-10.0 + (1.0 - t) * 48.0, 10.0])
         .order(egui::Order::Foreground)
         .show(ui.ctx(), |ui| {
+            ui.multiply_opacity(t);
             egui::Frame::new()
                 .fill(theme.panel)
                 .stroke(Stroke::new(1.0, theme.border))
@@ -1388,19 +1494,19 @@ pub fn status_bar(ui: &mut Ui, id: &str, left: &str, right: &str) -> Response {
 /// Auto-expiring toast stack, drawn bottom-right.
 #[derive(Default)]
 pub struct Toasts {
-    items: Vec<(String, Variant, f64)>,
+    items: Vec<(String, Variant, f64, f64)>, // text, variant, born, until
 }
 
 impl Toasts {
     /// Show a toast for `ttl` seconds.
     pub fn push(&mut self, text: &str, variant: Variant, now: f64, ttl: f64) {
-        self.items.push((text.to_owned(), variant, now + ttl));
+        self.items.push((text.to_owned(), variant, now, now + ttl));
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
         let theme = Theme::get(ui.ctx());
         let now = ui.input(|i| i.time);
-        self.items.retain(|(_, _, until)| *until > now);
+        self.items.retain(|(_, _, _, until)| *until > now);
         if self.items.is_empty() {
             return;
         }
@@ -1408,24 +1514,38 @@ impl Toasts {
             .anchor(egui::Align2::RIGHT_BOTTOM, [-16.0, -16.0])
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
-                for (text, variant, _) in &self.items {
+                for (text, variant, born, until) in &self.items {
                     let accent = match variant {
                         Variant::Primary => theme.primary,
                         Variant::Danger => theme.danger,
                         _ => theme.border,
                     };
-                    egui::Frame::new()
-                        .fill(theme.panel)
-                        .stroke(Stroke::new(1.0, accent))
-                        .corner_radius(CornerRadius::same(theme.radius as u8))
-                        .inner_margin(8.0)
-                        .show(ui, |ui| {
-                            ui.label(RichText::new(text).color(theme.text));
-                        });
+                    // slide in over 180ms, fade out over the last 400ms
+                    let enter = ((now - born) / 0.18).clamp(0.0, 1.0) as f32;
+                    let exit = ((until - now) / 0.4).clamp(0.0, 1.0) as f32;
+                    let t = enter.min(exit);
+                    ui.scope(|ui| {
+                        ui.multiply_opacity(t);
+                        ui.add_space((1.0 - t) * 6.0);
+                        egui::Frame::new()
+                            .fill(theme.panel)
+                            .stroke(Stroke::new(1.0, accent.gamma_multiply(0.6)))
+                            .corner_radius(CornerRadius::same(theme.radius as u8))
+                            .inner_margin(egui::Margin::symmetric(10, 8))
+                            .shadow(egui::epaint::Shadow {
+                                offset: [0, 4],
+                                blur: 12,
+                                spread: 0,
+                                color: egui::Color32::from_black_alpha(80),
+                            })
+                            .show(ui, |ui| {
+                                ui.label(RichText::new(text).color(theme.text));
+                            });
+                    });
                     ui.add_space(4.0);
                 }
             });
-        ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(120));
     }
 }
 
@@ -1895,4 +2015,30 @@ pub fn message_scroller(ui: &mut Ui, height: f32, len: usize, mut row: impl FnMu
                 ui.allocate_ui(egui::vec2(ui.available_width(), 44.0), |ui| row(ui, i));
             }
         });
+}
+
+/// Thicker, smoother spinner than egui's default thin arc: `ui.kit_spinner(20.0)`.
+pub fn kit_spinner(ui: &mut Ui, size: f32) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), Sense::hover());
+    if ui.is_rect_visible(rect) {
+        ui.ctx().request_repaint();
+        let time = ui.input(|i| i.time) as f32;
+        let radius = (size * 0.5 - 2.0).max(1.0);
+        let center = rect.center();
+        let start = time * std::f32::consts::TAU * 0.9;
+        // 300 degrees of arc, drawn in 32 segments so it reads as smooth
+        let sweep = std::f32::consts::TAU * (5.0 / 6.0);
+        let points: Vec<egui::Pos2> = (0..=32)
+            .map(|i| {
+                let a = start + sweep * (i as f32 / 32.0);
+                center + radius * egui::vec2(a.cos(), a.sin())
+            })
+            .collect();
+        ui.painter().add(egui::Shape::line(
+            points,
+            Stroke::new((size * 0.14).clamp(2.0, 4.0), theme.primary),
+        ));
+    }
+    response
 }

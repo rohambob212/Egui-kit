@@ -66,3 +66,9 @@ the automated screenshot checks).
 Widgets land in batches; the crate is versioned 0.1 and the API is not frozen.
 
 Design language credited to [gpui-kit](https://gpui-kit.com) (Longbridge). Code: MIT OR Apache-2.0.
+
+## Deep links
+
+Every page has a URL on the web build: `?page=theme|widgets|misc|data|apps|overlays`
+(e.g. https://egui-kit.rohambob.ir/?page=apps). The native build uses
+`GALLERY_PAGE=apps` instead.

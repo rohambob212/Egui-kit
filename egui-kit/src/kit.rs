@@ -129,6 +129,10 @@ pub trait KitUi {
     fn focus_trap(&mut self, id: &str) -> Response;
     /// Chat transcript that sticks to the newest row.
     fn message_scroller(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize));
+    /// Thicker spinner with a smooth arc (egui's own `spinner` is thinner).
+    fn kit_spinner(&mut self, size: f32) -> Response;
+    /// Labeled progress bar with the percentage on the right.
+    fn progress_labeled(&mut self, value: f32, label: &str) -> Response;
     /// Multi-step questionnaire with Back/Next.
     fn questionnaire(&mut self, id: &str, questions: &[crate::basic::Question<'_>], answers: &mut Vec<Option<usize>>) -> Response;
     /// Primary button, the common case.
@@ -392,5 +396,13 @@ impl KitUi for Ui {
 
     fn message_scroller(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize)) {
         basic::message_scroller(self, height, len, row)
+    }
+
+    fn kit_spinner(&mut self, size: f32) -> Response {
+        basic::kit_spinner(self, size)
+    }
+
+    fn progress_labeled(&mut self, value: f32, label: &str) -> Response {
+        basic::progress_labeled(self, value, label)
     }
 }

@@ -25,6 +25,8 @@ pub enum Variant {
     Default,
     Primary,
     Danger,
+    Warning,
+    Success,
     Ghost,
     Outline,
 }
