@@ -1702,3 +1702,133 @@ pub fn copy_button(ui: &mut Ui, id: &str, value: &str) -> Response {
     }
     resp
 }
+
+// `Theme` is assumed to be in scope, with Color32 colour fields and a numeric `radius`.
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Icon { Check, Cross, Plus, Minus, ChevronRight, ChevronDown, Search, Dot }
+
+pub fn icon(ui: &mut Ui, kind: Icon, size: f32, color: Color32) -> Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(size, size), Sense::hover());
+    if ui.is_rect_visible(rect) {
+        let p = ui.painter();
+        let stroke = Stroke::new(2.0, color);
+        let at = |x: f32, y: f32| pos2(rect.left() + x * size, rect.top() + y * size);
+        match kind {
+            Icon::Check => {
+                p.line_segment([at(0.20, 0.55), at(0.42, 0.75)], stroke);
+                p.line_segment([at(0.42, 0.75), at(0.80, 0.28)], stroke);
+            }
+            Icon::Cross => {
+                p.line_segment([at(0.25, 0.25), at(0.75, 0.75)], stroke);
+                p.line_segment([at(0.75, 0.25), at(0.25, 0.75)], stroke);
+            }
+            Icon::Plus => {
+                p.line_segment([at(0.20, 0.50), at(0.80, 0.50)], stroke);
+                p.line_segment([at(0.50, 0.20), at(0.50, 0.80)], stroke);
+            }
+            Icon::Minus => {
+                p.line_segment([at(0.20, 0.50), at(0.80, 0.50)], stroke);
+            }
+            Icon::ChevronRight => {
+                p.line_segment([at(0.38, 0.22), at(0.66, 0.50)], stroke);
+                p.line_segment([at(0.66, 0.50), at(0.38, 0.78)], stroke);
+            }
+            Icon::ChevronDown => {
+                p.line_segment([at(0.22, 0.38), at(0.50, 0.66)], stroke);
+                p.line_segment([at(0.50, 0.66), at(0.78, 0.38)], stroke);
+            }
+            Icon::Search => {
+                p.circle_stroke(at(0.44, 0.44), size * 0.26, stroke);
+                p.line_segment([at(0.63, 0.63), at(0.82, 0.82)], stroke);
+            }
+            Icon::Dot => {
+                p.circle_filled(rect.center(), size * 0.18, color);
+            }
+        }
+    }
+    response
+}
+
+pub struct Question<'a> {
+    pub prompt: &'a str,
+    pub options: Vec<&'a str>,
+}
+
+pub fn questionnaire(
+    ui: &mut Ui,
+    id: &str,
+    questions: &[Question<'_>],
+    answers: &mut Vec<Option<usize>>,
+) -> Response {
+    let theme = Theme::get(ui.ctx());
+    // egui 0.37 has no `Id::unique`; `Id::new` is the hashing constructor.
+    let step_id = egui::Id::unique(id).with("step");
+    answers.resize(questions.len(), None);
+    let last_index = questions.len().saturating_sub(1);
+    let mut step = ui.ctx().data(|d| d.get_temp::<usize>(step_id)).unwrap_or(0).min(last_index);
+    let mut changed = false;
+
+    let mut response = ui
+        .vertical(|ui| {
+            let Some(question) = questions.get(step) else { return };
+            ui.label(RichText::new(question.prompt).strong().color(theme.text));
+            ui.add_space(4.0);
+
+            let radius = CornerRadius::same(theme.radius as u8);
+            let font = egui::TextStyle::Body.resolve(ui.style());
+            for (i, option) in question.options.iter().enumerate() {
+                let selected = answers[step] == Some(i);
+                let (rect, row) = ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::click());
+                let row = row.on_hover_cursor(egui::CursorIcon::PointingHand);
+                row.widget_info(|| {
+                    egui::WidgetInfo::selected(egui::WidgetType::RadioButton, true, selected, *option)
+                });
+                if ui.is_rect_visible(rect) {
+                    let (fill, edge, text_color) = if selected {
+                        (theme.primary.gamma_multiply(0.15), theme.primary, theme.primary)
+                    } else if row.hovered() {
+                        (theme.surface_hover, theme.border, theme.text)
+                    } else {
+                        (theme.surface, theme.border, theme.text)
+                    };
+                    let p = ui.painter();
+                    p.rect_filled(rect, radius, fill);
+                    p.rect_stroke(rect, radius, Stroke::new(1.0, edge), StrokeKind::Inside);
+                    p.text(
+                        rect.left_center() + vec2(10.0, 0.0),
+                        Align2::LEFT_CENTER,
+                        *option,
+                        font.clone(),
+                        text_color,
+                    );
+                }
+                if row.clicked() && !selected {
+                    answers[step] = Some(i);
+                    changed = true;
+                }
+                ui.add_space(4.0);
+            }
+
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                if ui.add_enabled(step > 0, egui::Button::new("Back")).clicked() {
+                    step -= 1;
+                    changed = true;
+                }
+                let is_last = step == last_index;
+                let label = if is_last { "Finish" } else { "Next" };
+                if ui.add(egui::Button::new(label)).clicked() && !is_last {
+                    step += 1;
+                    changed = true;
+                }
+            });
+        })
+        .response;
+
+    ui.ctx().data_mut(|d| d.insert_temp(step_id, step));
+    if changed {
+        response.mark_changed();
+    }
+    response
+}

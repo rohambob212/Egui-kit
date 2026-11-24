@@ -9,7 +9,7 @@ pub mod data;
 pub mod kit;
 pub mod theme;
 
-pub use basic::{LabelKind, Side, Toasts};
+pub use basic::{Icon, LabelKind, Question, Side, Toasts};
 pub use kit::KitUi;
 pub use theme::Theme;
 

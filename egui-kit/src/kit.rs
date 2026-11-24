@@ -115,6 +115,10 @@ pub trait KitUi {
     fn toggle(&mut self, id: &str, on: &mut bool) -> Response;
     /// Copy-to-clipboard button.
     fn copy_button(&mut self, id: &str, value: &str) -> Response;
+    /// Vector icon drawn from painter primitives (no icon font needed).
+    fn icon(&mut self, kind: crate::basic::Icon, size: f32, color: egui::Color32) -> Response;
+    /// Multi-step questionnaire with Back/Next.
+    fn questionnaire(&mut self, id: &str, questions: &[crate::basic::Question<'_>], answers: &mut Vec<Option<usize>>) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -344,5 +348,13 @@ impl KitUi for Ui {
 
     fn copy_button(&mut self, id: &str, value: &str) -> Response {
         basic::copy_button(self, id, value)
+    }
+
+    fn icon(&mut self, kind: crate::basic::Icon, size: f32, color: egui::Color32) -> Response {
+        basic::icon(self, kind, size, color)
+    }
+
+    fn questionnaire(&mut self, id: &str, questions: &[crate::basic::Question<'_>], answers: &mut Vec<Option<usize>>) -> Response {
+        basic::questionnaire(self, id, questions, answers)
     }
 }

@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui_kit::{KitUi, Side, Theme, Toasts, Variant};
+use egui_kit::{Icon, KitUi, Question, Side, Theme, Toasts, Variant};
 
 fn main() -> eframe::Result<()> {
     let height: f32 = std::env::var("GALLERY_H").ok().and_then(|h| h.parse().ok()).unwrap_or(760.0);
@@ -55,6 +55,7 @@ fn main() -> eframe::Result<()> {
                 slide: 0,
                 toasts: Toasts::default(),
                 misc_on: true,
+                answers: Vec::new(),
             }))
         }),
     )
@@ -104,6 +105,7 @@ struct App {
     slide: usize,
     toasts: Toasts,
     misc_on: bool,
+    answers: Vec<Option<usize>>,
 }
 
 const PAGES: &[(Page, &str)] = &[
@@ -416,6 +418,38 @@ fn misc_page(ui: &mut egui::Ui, app: &mut App) {
         ui.label("toggle");
         ui.copy_button("copy-demo", "cargo add egui-kit");
     });
+    ui.add_space(12.0);
+
+    ui.label("Icons");
+    ui.horizontal(|ui| {
+        let t = Theme::get(ui.ctx());
+        for kind in [
+            Icon::Check,
+            Icon::Cross,
+            Icon::Plus,
+            Icon::Minus,
+            Icon::ChevronRight,
+            Icon::ChevronDown,
+            Icon::Search,
+            Icon::Dot,
+        ] {
+            ui.icon(kind, 20.0, t.text);
+        }
+    });
+    ui.add_space(12.0);
+
+    ui.label("Questionnaire");
+    let questions = [
+        Question { prompt: "Which platform first?", options: vec!["Desktop", "Web", "Mobile"] },
+        Question { prompt: "How do you ship it?", options: vec!["CI", "Locally", "Both"] },
+        Question { prompt: "Ship the wasm site?", options: vec!["Yes", "Not yet"] },
+    ];
+    ui.questionnaire("onboarding", &questions, &mut app.answers);
+    ui.add_space(8.0);
+    ui.text(
+        &format!("answers so far: {:?}", app.answers),
+        egui_kit::LabelKind::Small,
+    );
     ui.add_space(12.0);
 
     ui.label("Image (placeholder when the file is missing)");
