@@ -57,6 +57,22 @@ pub trait KitUi {
     fn group_box(&mut self, title: &str, body: impl FnOnce(&mut Ui)) -> Response;
     /// Key/value table.
     fn description_list(&mut self, rows: &[(&str, &str)]) -> Response;
+    /// Centred empty-state placeholder.
+    fn empty(&mut self, title: &str, hint: &str) -> Response;
+    /// File chip with a remove button.
+    fn attachment(&mut self, name: &str, removed: &mut bool) -> Response;
+    /// Vertical scroll region of fixed height.
+    fn scrollable<R>(&mut self, height: f32, add: impl FnOnce(&mut Ui) -> R) -> R;
+    /// Label above a field, spaced for a form.
+    fn form_row(&mut self, label: &str, field: impl FnOnce(&mut Ui)) -> Response;
+    /// Content plus a rich hover card.
+    fn hover_card(&mut self, content: impl FnOnce(&mut Ui), add: impl FnOnce(&mut Ui) -> Response) -> Response;
+    /// Selectable list row; true when picked.
+    fn list_item(&mut self, selected: bool, label: &str) -> bool;
+    /// Month grid with prev/next navigation: `ui.calendar(&mut y, &mut m, &mut day)`.
+    fn calendar(&mut self, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response;
+    /// Button that expands the calendar inline: `ui.date_picker("start", &mut y, &mut m, &mut day)`.
+    fn date_picker(&mut self, id: &str, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -170,5 +186,37 @@ impl KitUi for Ui {
 
     fn description_list(&mut self, rows: &[(&str, &str)]) -> Response {
         basic::description_list(self, rows)
+    }
+
+    fn empty(&mut self, title: &str, hint: &str) -> Response {
+        basic::empty(self, title, hint)
+    }
+
+    fn attachment(&mut self, name: &str, removed: &mut bool) -> Response {
+        basic::attachment(self, name, removed)
+    }
+
+    fn scrollable<R>(&mut self, height: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+        basic::scrollable(self, height, add)
+    }
+
+    fn form_row(&mut self, label: &str, field: impl FnOnce(&mut Ui)) -> Response {
+        basic::form_row(self, label, field)
+    }
+
+    fn hover_card(&mut self, content: impl FnOnce(&mut Ui), add: impl FnOnce(&mut Ui) -> Response) -> Response {
+        basic::hover_card(self, content, add)
+    }
+
+    fn list_item(&mut self, selected: bool, label: &str) -> bool {
+        basic::list_item(self, selected, label)
+    }
+
+    fn calendar(&mut self, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response {
+        basic::calendar(self, year, month, day)
+    }
+
+    fn date_picker(&mut self, id: &str, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response {
+        basic::date_picker(self, id, year, month, day)
     }
 }

@@ -744,3 +744,220 @@ pub fn description_list(ui: &mut Ui, rows: &[(&str, &str)]) -> Response {
     })
     .response
 }
+
+/// Centred placeholder: `ui.empty("No results", "Try another search")`.
+pub fn empty(ui: &mut Ui, title: &str, hint: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    ui.vertical_centered(|ui| {
+        ui.add_space(18.0);
+        let (rect, resp) = ui.allocate_exact_size(egui::vec2(40.0, 40.0), Sense::hover());
+        if ui.is_rect_visible(rect) {
+            ui.painter().circle_stroke(rect.center(), 18.0, Stroke::new(2.0, theme.border));
+            ui.painter().line_segment(
+                [rect.center() + egui::vec2(-7.0, 7.0), rect.center() + egui::vec2(7.0, -7.0)],
+                Stroke::new(2.0, theme.border),
+            );
+        }
+        ui.label(RichText::new(title).strong());
+        ui.label(RichText::new(hint).color(theme.text_muted));
+        ui.add_space(18.0);
+        resp
+    })
+    .inner
+}
+
+/// File chip with a remove button: `ui.attachment("report.pdf", &mut removed)`.
+pub fn attachment(ui: &mut Ui, name: &str, removed: &mut bool) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let size = theme.radius;
+    ui.horizontal(|ui| {
+        egui::Frame::new()
+            .fill(theme.surface)
+            .stroke(Stroke::new(1.0, theme.border))
+            .corner_radius(CornerRadius::same(size as u8))
+            .inner_margin(6.0)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(name).color(theme.text));
+                    if ui.small_button("x").clicked() {
+                        *removed = true;
+                    }
+                });
+            });
+    })
+    .response
+}
+
+/// Vertical scroll region with themed scrollbars: `ui.scrollable(200.0, |ui| ...)`.
+pub fn scrollable<R>(ui: &mut Ui, height: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+    egui::ScrollArea::vertical().max_height(height).show(ui, add).inner
+}
+
+/// Form row: label above a field, 12px gap to the next row.
+pub fn form_row(ui: &mut Ui, label: &str, field: impl FnOnce(&mut Ui)) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let resp = ui
+        .vertical(|ui| {
+            ui.label(RichText::new(label).color(theme.text_muted));
+            field(ui);
+            ui.add_space(12.0);
+        })
+        .response;
+    resp
+}
+
+/// Rich hover card: `ui.hover_card(&resp, |ui| ui.label("details"))`.
+pub fn hover_card(ui: &mut Ui, content: impl FnOnce(&mut Ui), add: impl FnOnce(&mut Ui) -> Response) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let fill = theme.panel;
+    let border = theme.border;
+    add(ui).on_hover_ui(|ui| {
+        egui::Frame::new()
+            .fill(fill)
+            .stroke(Stroke::new(1.0, border))
+            .corner_radius(CornerRadius::same(theme.radius as u8))
+            .inner_margin(8.0)
+            .show(ui, content);
+    })
+}
+
+/// Selectable row for lists; returns true when picked.
+pub fn list_item(ui: &mut Ui, selected: bool, label: &str) -> bool {
+    ui.selectable_label(selected, label).clicked()
+}
+
+const MONTHS: [&str; 12] = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+];
+const WEEKDAYS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+fn days_in_month(y: i32, m: u32) -> u32 {
+    match m {
+        4 | 6 | 9 | 11 => 30,
+        2 if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 => 29,
+        2 => 28,
+        _ => 31,
+    }
+}
+
+/// Sakamoto's algorithm, shifted so that 0 = Monday .. 6 = Sunday.
+fn weekday(y: i32, m: u32, d: u32) -> u32 {
+    const T: [i32; 12] = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+    let m = m.clamp(1, 12);
+    let y = if m < 3 { y - 1 } else { y };
+    let sunday0 = (y + y.div_euclid(4) - y.div_euclid(100) + y.div_euclid(400)
+        + T[(m - 1) as usize]
+        + d as i32)
+        .rem_euclid(7);
+    ((sunday0 + 6) % 7) as u32
+}
+
+pub fn calendar(ui: &mut Ui, year: &mut i32, month: &mut u32, selected_day: &mut Option<u32>) -> Response {
+    let t = Theme::get(ui.ctx());
+    *month = (*month).clamp(1, 12);
+    let radius = CornerRadius::same(t.radius as u8);
+    let frame = egui::Frame::new()
+        .fill(t.surface)
+        .stroke(Stroke::new(1.0, t.border))
+        .corner_radius(radius)
+        .inner_margin(egui::Margin::same(6));
+    let inner = frame.show(ui, |ui| {
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing = vec2(0.0, 2.0);
+            let mut resp = ui
+                .horizontal(|ui| {
+                    if ui.add_sized([30.0, 24.0], egui::Button::new("<")).clicked() {
+                        if *month == 1 {
+                            *month = 12;
+                            *year -= 1;
+                        } else {
+                            *month -= 1;
+                        }
+                    }
+                    let (rect, _) = ui.allocate_exact_size(vec2(150.0, 24.0), Sense::hover());
+                    if ui.add_sized([30.0, 24.0], egui::Button::new(">")).clicked() {
+                        if *month == 12 {
+                            *month = 1;
+                            *year += 1;
+                        } else {
+                            *month += 1;
+                        }
+                    }
+                    let title = format!("{} {}", MONTHS[(*month - 1) as usize], *year);
+                    ui.painter().text(rect.center(), Align2::CENTER_CENTER, title, FontId::proportional(13.0), t.text);
+                })
+                .response;
+            let dim = days_in_month(*year, *month) as i32;
+            if let Some(d) = selected_day {
+                *d = (*d).min(dim as u32);
+            }
+            ui.horizontal(|ui| {
+                for name in WEEKDAYS {
+                    let (rect, _) = ui.allocate_exact_size(vec2(30.0, 18.0), Sense::hover());
+                    ui.painter().text(rect.center(), Align2::CENTER_CENTER, name, FontId::proportional(11.0), t.text_muted);
+                }
+            });
+            let first = weekday(*year, *month, 1) as i32;
+            for week in 0..6 {
+                ui.horizontal(|ui| {
+                    for dow in 0..7 {
+                        let n = week * 7 + dow - first + 1;
+                        let in_month = (1..=dim).contains(&n);
+                        let sense = if in_month { Sense::click() } else { Sense::hover() };
+                        let (rect, mut r) = ui.allocate_exact_size(vec2(30.0, 28.0), sense);
+                        if in_month {
+                            let day = n as u32;
+                            if r.clicked() && *selected_day != Some(day) {
+                                *selected_day = Some(day);
+                                r.mark_changed();
+                            }
+                            let selected = *selected_day == Some(day);
+                            let fill = if selected {
+                                t.primary
+                            } else if r.hovered() {
+                                t.surface_hover
+                            } else {
+                                Color32::TRANSPARENT
+                            };
+                            let color = if selected { t.on_primary } else { t.text };
+                            ui.painter().rect_filled(rect.shrink(1.0), radius, fill);
+                            ui.painter().text(rect.center(), Align2::CENTER_CENTER, day.to_string(), FontId::proportional(13.0), color);
+                        }
+                        resp = r;
+                    }
+                });
+            }
+            resp
+        })
+        .inner
+    });
+    inner.inner
+}
+
+pub fn date_picker(ui: &mut Ui, id: &str, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response {
+    let t = Theme::get(ui.ctx());
+    let open_id = egui::Id::unique(id).with("date_picker_open");
+    let mut open = ui.ctx().data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
+    let (label, color) = match *day {
+        Some(d) => (format!("{:04}-{:02}-{:02}", *year, *month, d), t.text),
+        None => ("Pick a date".to_owned(), t.text_muted),
+    };
+    ui.vertical(|ui| {
+        let button = egui::Button::new(RichText::new(label).color(color))
+            .fill(t.surface)
+            .stroke(Stroke::new(1.0, t.border))
+            .corner_radius(CornerRadius::same(t.radius as u8));
+        let resp = ui.add(button);
+        if resp.clicked() {
+            open = !open;
+            ui.ctx().data_mut(|d| d.insert_temp(open_id, open));
+        }
+        if open {
+            ui.add_space(4.0);
+            calendar(ui, year, month, day);
+        }
+        resp
+    })
+    .inner
+}

@@ -15,7 +15,7 @@ fn main() -> eframe::Result<()> {
         Box::new(|cc| {
             Theme::dark().apply(&cc.egui_ctx);
             Ok(Box::new(App {
-                dark: true,
+                dark: std::env::var("GALLERY_LIGHT").is_err(),
                 page: if std::env::var("GALLERY_PAGE").as_deref() == Ok("widgets") {
                     Page::Widgets
                 } else {
@@ -38,6 +38,11 @@ fn main() -> eframe::Result<()> {
                 name: String::new(),
                 notes: String::new(),
                 qty: 3.0,
+                list_sel: 0,
+                removed: false,
+                year: 2026,
+                month: 11,
+                day: None,
             }))
         }),
     )
@@ -69,6 +74,11 @@ struct App {
     name: String,
     notes: String,
     qty: f64,
+    list_sel: usize,
+    removed: bool,
+    year: i32,
+    month: u32,
+    day: Option<u32>,
 }
 
 const PAGES: &[(Page, &str)] = &[(Page::Theme, "Theme"), (Page::Widgets, "Widgets")];
@@ -253,4 +263,43 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
     ui.group_box("Details", |ui| {
         ui.description_list(&[("Plan", "Infinite"), ("Seats", "3"), ("Region", "eu-west")]);
     });
+    ui.add_space(12.0);
+
+    ui.label("List");
+    ui.scrollable(110.0, |ui| {
+        for (i, name) in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta"].iter().enumerate() {
+            if ui.list_item(app.list_sel == i, name) {
+                app.list_sel = i;
+            }
+        }
+    });
+    ui.add_space(12.0);
+
+    ui.label("Form");
+    ui.form_row("Full name", |ui| {
+        ui.text_input(&mut app.name, "Ada Lovelace");
+    });
+    ui.form_row("Notes", |ui| {
+        ui.textarea(&mut app.notes, 2);
+    });
+
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.hover_card(|ui| { ui.label("A rich hover card"); }, |ui| ui.button("Hover card"));
+        if !app.removed {
+            ui.attachment("report.pdf", &mut app.removed);
+        } else if ui.button("restore attachment").clicked() {
+            app.removed = false;
+        }
+    });
+    ui.add_space(12.0);
+
+    ui.label("Date picker");
+    ui.date_picker("due", &mut app.year, &mut app.month, &mut app.day);
+    ui.add_space(12.0);
+
+    ui.label("Calendar");
+    ui.calendar(&mut app.year, &mut app.month, &mut app.day);
+    ui.add_space(12.0);
+    ui.empty("Nothing here yet", "Create your first item");
 }
