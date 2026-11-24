@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>egui-kit gallery</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #121215;
+        color: #f4f4f5;
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
+      }
+      #egui_canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #loading {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        gap: 8px;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      #loading.hidden {
+        opacity: 0;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="egui_canvas"></canvas>
+    <div id="loading">
+      <div>loading egui-kit gallery…</div>
+      <code>wasm</code>
+    </div>
+    <script type="module">
+      import init from "./gallery.js";
+      init()
+        .then(() => document.getElementById("loading").classList.add("hidden"))
+        .catch((err) => {
+          document.getElementById("loading").textContent = "failed to load: " + err;
+          console.error(err);
+        });
+    </script>
+  </body>
+</html>

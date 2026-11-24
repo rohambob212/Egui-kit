@@ -18,7 +18,7 @@ impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         Theme::dark().apply(&cc.egui_ctx);
         App {
-            dark: !env_or("GALLERY_LIGHT", "").is_empty(),
+            dark: env_or("GALLERY_LIGHT", "").is_empty(),
             page: match env_or("GALLERY_PAGE", "").as_str() {
                 "widgets" => Page::Widgets,
                 "misc" => Page::Misc,
