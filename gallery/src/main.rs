@@ -1,6 +1,69 @@
 use eframe::egui;
 use egui_kit::{Icon, KitUi, Question, Side, Theme, Toasts, Variant};
 
+/// Reads a process env var on native, returns the default on wasm.
+fn env_or(key: &str, default: &str) -> String {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::env::var(key).unwrap_or_else(|_| default.to_owned())
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = key;
+        default.to_owned()
+    }
+}
+
+impl App {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        Theme::dark().apply(&cc.egui_ctx);
+        App {
+            dark: !env_or("GALLERY_LIGHT", "").is_empty(),
+            page: match env_or("GALLERY_PAGE", "").as_str() {
+                "widgets" => Page::Widgets,
+                "misc" => Page::Misc,
+                "data" => Page::Data,
+                "overlays" => Page::Overlays,
+                _ => Page::Theme,
+            },
+            rating: 3,
+            step: 1,
+            page_num: 0,
+            tab: 0,
+            acc_open: false,
+            otp: String::new(),
+            hh: 14,
+            mm: 30,
+            choice: 0,
+            query: String::new(),
+            checked: true,
+            ratio: 0,
+            notify: false,
+            level: 40.0,
+            name: String::new(),
+            notes: String::new(),
+            qty: 3.0,
+            list_sel: 0,
+            removed: false,
+            year: 2026,
+            month: 11,
+            day: None,
+            tree_sel: None,
+            pal_open: env_or("GALLERY_OPEN", "") == "palette",
+            pal_q: String::new(),
+            last_cmd: None,
+            dlg_open: env_or("GALLERY_OPEN", "") == "dialog",
+            pop_open: false,
+            sheet_open: env_or("GALLERY_OPEN", "") == "sheet",
+            slide: 0,
+            toasts: Toasts::default(),
+            misc_on: true,
+            answers: Vec::new(),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     let height: f32 = std::env::var("GALLERY_H").ok().and_then(|h| h.parse().ok()).unwrap_or(760.0);
     let opts = eframe::NativeOptions {
@@ -12,52 +75,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "egui-kit gallery",
         opts,
-        Box::new(|cc| {
-            Theme::dark().apply(&cc.egui_ctx);
-            Ok(Box::new(App {
-                dark: std::env::var("GALLERY_LIGHT").is_err(),
-                page: match std::env::var("GALLERY_PAGE").as_deref() {
-                    Ok("widgets") => Page::Widgets,
-                    Ok("misc") => Page::Misc,
-                    Ok("data") => Page::Data,
-                    Ok("overlays") => Page::Overlays,
-                    _ => Page::Theme,
-                },
-                rating: 3,
-                step: 1,
-                page_num: 0,
-                tab: 0,
-                acc_open: false,
-                otp: String::new(),
-                hh: 14,
-                mm: 30,
-                choice: 0,
-                query: String::new(),
-                checked: true,
-                ratio: 0,
-                notify: false,
-                level: 40.0,
-                name: String::new(),
-                notes: String::new(),
-                qty: 3.0,
-                list_sel: 0,
-                removed: false,
-                year: 2026,
-                month: 11,
-                day: None,
-                tree_sel: None,
-                pal_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("palette"),
-                pal_q: String::new(),
-                last_cmd: None,
-                dlg_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("dialog"),
-                pop_open: false,
-                sheet_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("sheet"),
-                slide: 0,
-                toasts: Toasts::default(),
-                misc_on: true,
-                answers: Vec::new(),
-            }))
-        }),
+        Box::new(|cc| Ok(Box::new(App::new(cc)))),
     )
 }
 
@@ -549,4 +567,23 @@ fn data_page(ui: &mut egui::Ui, app: &mut App) {
         .collect();
     egui_kit::data::table(ui, "users", &["Name", "Age", "Email"], &rows);
     let _ = app;
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    use eframe::wasm_bindgen::JsCast as _;
+    console_error_panic_hook::set_once();
+    let document = web_sys::window().unwrap().document().unwrap();
+    let canvas = document.get_element_by_id("egui_canvas").expect("canvas #egui_canvas missing");
+    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into().expect("#egui_canvas is not a canvas");
+    wasm_bindgen_futures::spawn_local(async move {
+        eframe::WebRunner::new()
+            .start(
+                canvas,
+                eframe::WebOptions::default(),
+                Box::new(|cc| Ok(Box::new(App::new(cc)))),
+            )
+            .await
+            .expect("failed to start the wasm app");
+    });
 }

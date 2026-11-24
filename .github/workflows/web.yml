@@ -1,0 +1,46 @@
+name: web
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'egui-kit/**'
+      - 'gallery/**'
+      - 'web/**'
+      - '.github/workflows/web.yml'
+
+jobs:
+  wasm:
+    # Linux runners work on the free plan, so the website builds free too.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-bindgen-cli (must match the wasm-bindgen crate version)
+        run: cargo install wasm-bindgen-cli --version 0.2.130 --locked
+
+      - name: Build for wasm
+        run: cargo build --release -p gallery --target wasm32-unknown-unknown
+
+      - name: Generate JS bindings
+        run: |
+          mkdir -p web/dist
+          wasm-bindgen --target web --no-typescript \
+            --out-dir web/dist \
+            target/wasm32-unknown-unknown/release/gallery.wasm
+          cp web/index.html web/dist/index.html
+          ls -la web/dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: egui-kit-web
+          path: web/dist
+          if-no-files-found: error
