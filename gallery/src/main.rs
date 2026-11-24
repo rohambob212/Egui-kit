@@ -2,9 +2,10 @@ use eframe::egui;
 use egui_kit::{KitUi, Theme, Variant};
 
 fn main() -> eframe::Result<()> {
+    let height: f32 = std::env::var("GALLERY_H").ok().and_then(|h| h.parse().ok()).unwrap_or(760.0);
     let opts = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1100.0, 760.0])
+            .with_inner_size([1100.0, height])
             .with_title("egui-kit gallery"),
         ..Default::default()
     };
@@ -28,6 +29,8 @@ fn main() -> eframe::Result<()> {
                 otp: String::new(),
                 hh: 14,
                 mm: 30,
+                choice: 0,
+                query: String::new(),
             }))
         }),
     )
@@ -50,6 +53,8 @@ struct App {
     otp: String,
     hh: u8,
     mm: u8,
+    choice: usize,
+    query: String,
 }
 
 const PAGES: &[(Page, &str)] = &[(Page::Theme, "Theme"), (Page::Widgets, "Widgets")];
@@ -195,4 +200,13 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
     ui.label("Time");
     ui.time_field(&mut app.hh, &mut app.mm);
     ui.label(format!("{:02}:{:02}", app.hh, app.mm));
+    ui.add_space(12.0);
+
+    ui.label("Select");
+    ui.select(&["Apple", "Banana", "Cherry"], &mut app.choice);
+    ui.add_space(12.0);
+
+    ui.label("Combobox (type inside the popup to filter)");
+    let fruits = ["Apple", "Apricot", "Banana", "Blueberry", "Cherry", "Grape", "Kiwi", "Mango", "Peach", "Plum"];
+    ui.combobox(&fruits, &mut app.query, &mut app.choice);
 }

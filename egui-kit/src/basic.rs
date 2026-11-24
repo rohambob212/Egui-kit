@@ -588,3 +588,45 @@ pub fn time_field(ui: &mut Ui, hh: &mut u8, mm: &mut u8) -> Response {
     })
     .inner
 }
+
+/// Native egui dropdown, themed. `ui.select(&items, &mut selected)`.
+pub fn select(ui: &mut Ui, items: &[&str], selected: &mut usize) -> Response {
+    egui::ComboBox::from_id_salt("kit-select")
+        .selected_text(items.get(*selected).copied().unwrap_or(""))
+        .width(180.0)
+        .show_ui(ui, |ui| {
+            for (i, item) in items.iter().enumerate() {
+                if ui.selectable_label(i == *selected, *item).clicked() {
+                    *selected = i;
+                }
+            }
+        })
+        .response
+}
+
+/// Filterable dropdown: type in the popup to narrow the list. `ui.combobox(&items, &mut query, &mut selected)`.
+pub fn combobox(ui: &mut Ui, items: &[&str], query: &mut String, selected: &mut usize) -> Response {
+    let needle = query.to_lowercase();
+    egui::ComboBox::from_id_salt("kit-combobox")
+        .selected_text(items.get(*selected).copied().unwrap_or(""))
+        .width(200.0)
+        .show_ui(ui, |ui| {
+            ui.add(egui::TextEdit::singleline(query).hint_text("Search...").desired_width(f32::INFINITY));
+            let mut hits = 0;
+            for (i, item) in items.iter().enumerate() {
+                if !needle.is_empty() && !item.to_lowercase().contains(&needle) {
+                    continue;
+                }
+                hits += 1;
+                if ui.selectable_label(i == *selected, *item).clicked() {
+                    *selected = i;
+                    query.clear();
+                    ui.close();
+                }
+            }
+            if hits == 0 {
+                ui.weak("no match");
+            }
+        })
+        .response
+}

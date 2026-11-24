@@ -35,6 +35,10 @@ pub trait KitUi {
     fn otp_input(&mut self, code: &mut String, len: usize) -> Response;
     /// Hour/minute drag fields: `ui.time_field(&mut hh, &mut mm)`.
     fn time_field(&mut self, hh: &mut u8, mm: &mut u8) -> Response;
+    /// Themed dropdown: `ui.select(&["One", "Two"], &mut selected)`.
+    fn select(&mut self, items: &[&str], selected: &mut usize) -> Response;
+    /// Filterable dropdown: `ui.combobox(&items, &mut query, &mut selected)`.
+    fn combobox(&mut self, items: &[&str], query: &mut String, selected: &mut usize) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -104,5 +108,13 @@ impl KitUi for Ui {
 
     fn time_field(&mut self, hh: &mut u8, mm: &mut u8) -> Response {
         basic::time_field(self, hh, mm)
+    }
+
+    fn select(&mut self, items: &[&str], selected: &mut usize) -> Response {
+        basic::select(self, items, selected)
+    }
+
+    fn combobox(&mut self, items: &[&str], query: &mut String, selected: &mut usize) -> Response {
+        basic::combobox(self, items, query, selected)
     }
 }
