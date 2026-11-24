@@ -39,6 +39,24 @@ pub trait KitUi {
     fn select(&mut self, items: &[&str], selected: &mut usize) -> Response;
     /// Filterable dropdown: `ui.combobox(&items, &mut query, &mut selected)`.
     fn combobox(&mut self, items: &[&str], query: &mut String, selected: &mut usize) -> Response;
+    /// Animated switch: `ui.switch("notify", &mut on)`.
+    fn switch(&mut self, id: &str, on: &mut bool) -> Response;
+    /// Native slider: `ui.slider(&mut value, 0.0..=100.0)`.
+    fn slider(&mut self, value: &mut f32, range: std::ops::RangeInclusive<f32>) -> Response;
+    /// Single-line text input in a themed frame: `ui.text_input(&mut text, "Name")`.
+    fn text_input(&mut self, text: &mut String, placeholder: &str) -> Response;
+    /// Multi-line text input: `ui.textarea(&mut text, 3)`.
+    fn textarea(&mut self, text: &mut String, rows: usize) -> Response;
+    /// Numeric drag input: `ui.number_input(&mut n, 0.0..=10.0)`.
+    fn number_input(&mut self, value: &mut f64, range: std::ops::RangeInclusive<f64>) -> Response;
+    /// Hover text on rendered content: `ui.tooltip("Saved", |ui| ui.button("ok"))`.
+    fn tooltip(&mut self, text: &str, add: impl FnOnce(&mut Ui) -> Response) -> Response;
+    /// Dropdown menu button, returns the clicked index.
+    fn menu(&mut self, label: &str, items: &[&str]) -> Option<usize>;
+    /// Bordered section with a title.
+    fn group_box(&mut self, title: &str, body: impl FnOnce(&mut Ui)) -> Response;
+    /// Key/value table.
+    fn description_list(&mut self, rows: &[(&str, &str)]) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -116,5 +134,41 @@ impl KitUi for Ui {
 
     fn combobox(&mut self, items: &[&str], query: &mut String, selected: &mut usize) -> Response {
         basic::combobox(self, items, query, selected)
+    }
+
+    fn switch(&mut self, id: &str, on: &mut bool) -> Response {
+        basic::switch(self, id, on)
+    }
+
+    fn slider(&mut self, value: &mut f32, range: std::ops::RangeInclusive<f32>) -> Response {
+        basic::slider(self, value, range)
+    }
+
+    fn text_input(&mut self, text: &mut String, placeholder: &str) -> Response {
+        basic::text_input(self, text, placeholder)
+    }
+
+    fn textarea(&mut self, text: &mut String, rows: usize) -> Response {
+        basic::textarea(self, text, rows)
+    }
+
+    fn number_input(&mut self, value: &mut f64, range: std::ops::RangeInclusive<f64>) -> Response {
+        basic::number_input(self, value, range)
+    }
+
+    fn tooltip(&mut self, text: &str, add: impl FnOnce(&mut Ui) -> Response) -> Response {
+        basic::tooltip(self, text, add)
+    }
+
+    fn menu(&mut self, label: &str, items: &[&str]) -> Option<usize> {
+        basic::menu(self, label, items)
+    }
+
+    fn group_box(&mut self, title: &str, body: impl FnOnce(&mut Ui)) -> Response {
+        basic::group_box(self, title, body)
+    }
+
+    fn description_list(&mut self, rows: &[(&str, &str)]) -> Response {
+        basic::description_list(self, rows)
     }
 }

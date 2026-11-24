@@ -31,6 +31,13 @@ fn main() -> eframe::Result<()> {
                 mm: 30,
                 choice: 0,
                 query: String::new(),
+                checked: true,
+                ratio: 0,
+                notify: false,
+                level: 40.0,
+                name: String::new(),
+                notes: String::new(),
+                qty: 3.0,
             }))
         }),
     )
@@ -55,6 +62,13 @@ struct App {
     mm: u8,
     choice: usize,
     query: String,
+    checked: bool,
+    ratio: usize,
+    notify: bool,
+    level: f32,
+    name: String,
+    notes: String,
+    qty: f64,
 }
 
 const PAGES: &[(Page, &str)] = &[(Page::Theme, "Theme"), (Page::Widgets, "Widgets")];
@@ -209,4 +223,34 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
     ui.label("Combobox (type inside the popup to filter)");
     let fruits = ["Apple", "Apricot", "Banana", "Blueberry", "Cherry", "Grape", "Kiwi", "Mango", "Peach", "Plum"];
     ui.combobox(&fruits, &mut app.query, &mut app.choice);
+    ui.add_space(12.0);
+
+    ui.label("Toggles");
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut app.checked, "Enabled"); // egui native, themed by our Visuals
+        ui.radio_value(&mut app.ratio, 0, "Low");
+        ui.radio_value(&mut app.ratio, 1, "Medium");
+        ui.radio_value(&mut app.ratio, 2, "High");
+        ui.switch("notify", &mut app.notify);
+        if ui.menu("Menu", &["Rename", "Duplicate", "Delete"]).is_some_and(|i| i == 2) {
+            app.notes.clear();
+        }
+        ui.tooltip("Hover text works", |ui| ui.button("Hover me"));
+    });
+    ui.add_space(12.0);
+
+    ui.label("Inputs");
+    ui.text_input(&mut app.name, "Name");
+    ui.add_space(4.0);
+    ui.textarea(&mut app.notes, 3);
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.number_input(&mut app.qty, 0.0..=99.0);
+        ui.slider(&mut app.level, 0.0..=100.0);
+    });
+    ui.add_space(12.0);
+
+    ui.group_box("Details", |ui| {
+        ui.description_list(&[("Plan", "Infinite"), ("Seats", "3"), ("Region", "eu-west")]);
+    });
 }

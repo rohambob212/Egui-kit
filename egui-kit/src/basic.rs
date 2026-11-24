@@ -630,3 +630,117 @@ pub fn combobox(ui: &mut Ui, items: &[&str], query: &mut String, selected: &mut 
         })
         .response
 }
+
+/// Animated on/off switch, 40x22.
+pub fn switch(ui: &mut Ui, id: &str, on: &mut bool) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let (rect, mut resp) = ui.allocate_exact_size(egui::vec2(40.0, 22.0), Sense::click());
+    if resp.clicked() {
+        *on = !*on;
+        resp.mark_changed();
+    }
+    let frac = ui.ctx().animate_value_with_time(resp.id.with(id), if *on { 1.0 } else { 0.0 }, 0.12);
+    if ui.is_rect_visible(rect) {
+        let bg = mix(theme.surface, theme.primary, frac);
+        ui.painter().rect_filled(rect, CornerRadius::same(11), bg);
+        let knob_x = egui::lerp((rect.left() + 11.0)..=(rect.right() - 11.0), frac);
+        ui.painter().circle_filled(egui::pos2(knob_x, rect.center().y), 9.0, theme.on_primary);
+    }
+    resp
+}
+
+fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
+    Color32::from_rgb(
+        egui::lerp(a.r() as f32..=b.r() as f32, t) as u8,
+        egui::lerp(a.g() as f32..=b.g() as f32, t) as u8,
+        egui::lerp(a.b() as f32..=b.b() as f32, t) as u8,
+    )
+}
+
+/// Native slider, themed.
+pub fn slider(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>) -> Response {
+    ui.add(egui::Slider::new(value, range))
+}
+
+/// Single-line text input in a themed frame.
+pub fn text_input(ui: &mut Ui, text: &mut String, placeholder: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    frame(ui, theme).show(ui, |ui| {
+        ui.add(egui::TextEdit::singleline(text).hint_text(placeholder).frame(egui::Frame::NONE))
+            .on_hover_text(placeholder)
+    }).inner
+}
+
+/// Multi-line text input in a themed frame.
+pub fn textarea(ui: &mut Ui, text: &mut String, rows: usize) -> Response {
+    let theme = Theme::get(ui.ctx());
+    frame(ui, theme).show(ui, |ui| {
+        ui.add(egui::TextEdit::multiline(text).desired_rows(rows).frame(egui::Frame::NONE))
+    }).inner
+}
+
+/// Numeric input with drag-to-change, in a themed frame.
+pub fn number_input(ui: &mut Ui, value: &mut f64, range: std::ops::RangeInclusive<f64>) -> Response {
+    let theme = Theme::get(ui.ctx());
+    frame(ui, theme).show(ui, |ui| {
+        ui.add(egui::DragValue::new(value).range(range).speed(0.1))
+    }).inner
+}
+
+fn frame<'a>(ui: &'a Ui, theme: Theme) -> egui::Frame {
+    egui::Frame::new()
+        .fill(theme.surface)
+        .stroke(Stroke::new(1.0, theme.border))
+        .corner_radius(CornerRadius::same(theme.radius as u8))
+        .inner_margin(6.0)
+        .outer_margin(0.0)
+}
+
+/// Hover text on whatever the closure renders: `ui.tooltip("Saved", |ui| ui.button("x"))`.
+pub fn tooltip(ui: &mut Ui, text: &str, add: impl FnOnce(&mut Ui) -> Response) -> Response {
+    add(ui).on_hover_text(text)
+}
+
+/// Dropdown menu button; returns the clicked item index.
+pub fn menu(ui: &mut Ui, label: &str, items: &[&str]) -> Option<usize> {
+    let mut chosen = None;
+    ui.menu_button(label, |ui| {
+        for (i, item) in items.iter().enumerate() {
+            if ui.button(*item).clicked() {
+                chosen = Some(i);
+                ui.close();
+            }
+        }
+    });
+    chosen
+}
+
+/// Bordered section with a title: `ui.group_box("Details", |ui| ...)`.
+pub fn group_box(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui)) -> Response {
+    let theme = Theme::get(ui.ctx());
+    egui::Frame::new()
+        .fill(theme.panel)
+        .stroke(Stroke::new(1.0, theme.border))
+        .corner_radius(CornerRadius::same(theme.radius as u8))
+        .inner_margin(10.0)
+        .show(ui, |ui| {
+            ui.label(RichText::new(title).strong());
+            ui.add_space(4.0);
+            body(ui);
+        })
+        .response
+}
+
+/// Key/value table: `ui.description_list(&[("Plan", "Infinite")])`.
+pub fn description_list(ui: &mut Ui, rows: &[(&str, &str)]) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let id = ui.next_auto_id();
+    egui::Grid::new(id).num_columns(2).spacing([20.0, 6.0]).show(ui, |ui| {
+        for (k, v) in rows {
+            ui.label(RichText::new(*k).color(theme.text_muted));
+            ui.label(*v);
+            ui.end_row();
+        }
+    })
+    .response
+}
