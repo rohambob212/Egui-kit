@@ -109,5 +109,24 @@ fn theme_page(ui: &mut egui::Ui) {
         ui.button_v("Danger", Variant::Danger);
         ui.badge("new");
         ui.badge("12");
+        ui.tag("design");
+        ui.kbd("Ctrl+K");
     });
+    ui.add_space(10.0);
+    ui.divider();
+    ui.add_space(10.0);
+    ui.progress(0.4);
+    ui.add_space(12.0);
+
+    ui.heading("Feedback");
+    ui.horizontal(|ui| {
+        ui.avatar("Ada Lovelace", 34.0);
+        ui.avatar("Grace Hopper", 34.0);
+        ui.spinner();
+        ui.skeleton(160.0, 14.0);
+    });
+    ui.add_space(6.0);
+    ui.alert("Saved to the project.", Variant::Primary);
+    ui.add_space(4.0);
+    ui.alert("Could not reach the server.", Variant::Danger);
 }
