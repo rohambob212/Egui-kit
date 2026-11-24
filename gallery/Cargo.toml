@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-egui-kit = { path = "../egui-kit", features = ["chart", "table"] }
+egui-kit = { path = "../egui-kit", features = ["chart", "table", "dock", "editor"] }
 egui.workspace = true
 # Base eframe for every target; x11/wayland only make sense on desktop.
 eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow"] }

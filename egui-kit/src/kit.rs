@@ -117,6 +117,18 @@ pub trait KitUi {
     fn copy_button(&mut self, id: &str, value: &str) -> Response;
     /// Vector icon drawn from painter primitives (no icon font needed).
     fn icon(&mut self, kind: crate::basic::Icon, size: f32, color: egui::Color32) -> Response;
+    /// Two-pane resizable split.
+    fn resizable<R>(&mut self, id: &str, default_width: f32, add: impl FnOnce(&mut Ui) -> R) -> R;
+    /// Left navigation panel of fixed width.
+    fn sidebar<R>(&mut self, id: &str, width: f32, add: impl FnOnce(&mut Ui) -> R) -> R;
+    /// Grouped settings block.
+    fn settings(&mut self, title: &str, body: impl FnOnce(&mut Ui)) -> Response;
+    /// Theme provider for a subtree: `ui.root(dark, |ui| ...)`.
+    fn root<R>(&mut self, dark: bool, add: impl FnOnce(&mut Ui) -> R) -> R;
+    /// Keyboard-focus target over the available area.
+    fn focus_trap(&mut self, id: &str) -> Response;
+    /// Chat transcript that sticks to the newest row.
+    fn message_scroller(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize));
     /// Multi-step questionnaire with Back/Next.
     fn questionnaire(&mut self, id: &str, questions: &[crate::basic::Question<'_>], answers: &mut Vec<Option<usize>>) -> Response;
     /// Primary button, the common case.
@@ -356,5 +368,29 @@ impl KitUi for Ui {
 
     fn questionnaire(&mut self, id: &str, questions: &[crate::basic::Question<'_>], answers: &mut Vec<Option<usize>>) -> Response {
         basic::questionnaire(self, id, questions, answers)
+    }
+
+    fn resizable<R>(&mut self, id: &str, default_width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+        basic::resizable(self, id, default_width, add)
+    }
+
+    fn sidebar<R>(&mut self, id: &str, width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+        basic::sidebar(self, id, width, add)
+    }
+
+    fn settings(&mut self, title: &str, body: impl FnOnce(&mut Ui)) -> Response {
+        basic::settings(self, title, body)
+    }
+
+    fn root<R>(&mut self, dark: bool, add: impl FnOnce(&mut Ui) -> R) -> R {
+        basic::root(self, dark, add)
+    }
+
+    fn focus_trap(&mut self, id: &str) -> Response {
+        basic::focus_trap(self, id)
+    }
+
+    fn message_scroller(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize)) {
+        basic::message_scroller(self, height, len, row)
     }
 }

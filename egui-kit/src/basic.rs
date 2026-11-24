@@ -1832,3 +1832,67 @@ pub fn questionnaire(
     }
     response
 }
+
+/// Two-pane split: drag the handle to resize. `ui.resizable("side", 240.0, |ui| ...)`.
+pub fn resizable<R>(ui: &mut Ui, id: &str, default_width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+    egui::Resize::default()
+        .id_salt(id)
+        .default_width(default_width)
+        .show(ui, add)
+}
+
+/// Left navigation panel of fixed width.
+pub fn sidebar<R>(ui: &mut Ui, id: &str, width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
+    egui::Panel::left(id)
+        .resizable(false)
+        .exact_size(width)
+        .show(ui, add)
+        .inner
+}
+
+/// Settings block: groups labelled rows under a title.
+pub fn settings(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui)) -> Response {
+    let theme = Theme::get(ui.ctx());
+    egui::Frame::new()
+        .fill(theme.panel)
+        .stroke(Stroke::new(1.0, theme.border))
+        .corner_radius(CornerRadius::same(theme.radius as u8))
+        .inner_margin(12.0)
+        .show(ui, |ui| {
+            ui.label(RichText::new(title).strong());
+            ui.add_space(6.0);
+            body(ui);
+        })
+        .response
+}
+
+/// Root provider: applies the theme, then your content.
+pub fn root<R>(ui: &mut Ui, dark: bool, add: impl FnOnce(&mut Ui) -> R) -> R {
+    if dark {
+        Theme::dark().apply(ui.ctx());
+    } else {
+        Theme::light().apply(ui.ctx());
+    }
+    ui.scope(add).inner
+}
+
+/// Keyboard-focus target covering the available area (overlays use this).
+pub fn focus_trap(ui: &mut Ui, id: &str) -> Response {
+    let resp = ui.interact(ui.available_rect_before_wrap(), egui::Id::unique(id), Sense::click());
+    if resp.clicked() {
+        resp.request_focus();
+    }
+    resp
+}
+
+/// Chat transcript that sticks to the newest row.
+pub fn message_scroller(ui: &mut Ui, height: f32, len: usize, mut row: impl FnMut(&mut Ui, usize)) {
+    egui::ScrollArea::vertical()
+        .max_height(height)
+        .stick_to_bottom(true)
+        .show_rows(ui, 44.0, len, |ui, range| {
+            for i in range {
+                ui.allocate_ui(egui::vec2(ui.available_width(), 44.0), |ui| row(ui, i));
+            }
+        });
+}

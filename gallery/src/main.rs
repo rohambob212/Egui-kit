@@ -23,6 +23,7 @@ impl App {
                 "widgets" => Page::Widgets,
                 "misc" => Page::Misc,
                 "data" => Page::Data,
+                "apps" => Page::Apps,
                 "overlays" => Page::Overlays,
                 _ => Page::Theme,
             },
@@ -59,6 +60,14 @@ impl App {
             toasts: Toasts::default(),
             misc_on: true,
             answers: Vec::new(),
+            code: String::from("fn main() {\n    // edit me\n    println!(\"hello\");\n}\n"),
+            dock_state: {
+                let mut tabs = Vec::new();
+                tabs.push(String::from("Files"));
+                tabs.push(String::from("Editor"));
+                tabs.push(String::from("Terminal"));
+                egui_kit::DockState::new(tabs)
+            },
         }
     }
 }
@@ -85,6 +94,7 @@ enum Page {
     Widgets,
     Misc,
     Data,
+    Apps,
     Overlays,
 }
 
@@ -124,6 +134,8 @@ struct App {
     toasts: Toasts,
     misc_on: bool,
     answers: Vec<Option<usize>>,
+    code: String,
+    dock_state: egui_kit::DockState<String>,
 }
 
 const PAGES: &[(Page, &str)] = &[
@@ -131,6 +143,7 @@ const PAGES: &[(Page, &str)] = &[
     (Page::Widgets, "Widgets"),
     (Page::Misc, "Misc"),
     (Page::Data, "Data"),
+    (Page::Apps, "Apps"),
     (Page::Overlays, "Overlays"),
 ];
 
@@ -175,6 +188,7 @@ impl eframe::App for App {
                 Page::Widgets => widgets_page(ui, self),
                 Page::Misc => misc_page(ui, self),
                 Page::Data => data_page(ui, self),
+                Page::Apps => apps_page(ui, self),
                 Page::Overlays => overlays_page(ui, self),
             });
         });
@@ -585,5 +599,47 @@ fn main() {
             )
             .await
             .expect("failed to start the wasm app");
+    });
+}
+
+fn apps_page(ui: &mut egui::Ui, app: &mut App) {
+    let t = Theme::get(ui.ctx());
+    ui.heading("Apps");
+    ui.label(egui::RichText::new("App-level components: dock, editor, resizable split, settings.").color(t.text_muted));
+    ui.add_space(12.0);
+
+    ui.label("Dock (drag tabs, split panes)");
+    egui_kit::heavy::dock(ui, "dock", 240.0, &mut app.dock_state, &mut |ui, tab| {
+        ui.label(format!("contents of {tab}"));
+        ui.add_space(4.0);
+        ui.kbd("drag the tab");
+    });
+    ui.add_space(16.0);
+
+    ui.label("Editor");
+    egui_kit::heavy::editor(ui, &mut app.code, 8);
+    ui.add_space(16.0);
+
+    ui.label("Resizable split");
+    ui.resizable("split", 220.0, |ui| {
+        ui.group_box("Left pane", |ui| {
+            ui.label("drag the handle to resize");
+        });
+    });
+    ui.add_space(16.0);
+
+    ui.label("Settings");
+    ui.settings("Preferences", |ui| {
+        ui.checkbox(&mut app.checked, "Enable notifications");
+        ui.radio_value(&mut app.ratio, 0, "Compact");
+        ui.radio_value(&mut app.ratio, 1, "Comfortable");
+    });
+    ui.add_space(16.0);
+
+    ui.label("Message scroller (sticks to newest)");
+    let lines = ["hey", "how's the port going?", "58 widgets so far", "nice", "shipping the wasm build"];
+    let n = lines.len();
+    ui.message_scroller(160.0, n, |ui, i| {
+        ui.message(if i % 2 == 0 { "Ada" } else { "Grace" }, lines[i], if i % 2 == 0 { Side::Left } else { Side::Right }, "12:0");
     });
 }

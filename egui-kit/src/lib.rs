@@ -6,6 +6,11 @@
 //! ```
 pub mod basic;
 pub mod data;
+pub mod heavy;
+
+/// Re-exported so callers do not need their own `egui_dock` dependency.
+#[cfg(feature = "dock")]
+pub use egui_dock::DockState;
 pub mod kit;
 pub mod theme;
 
