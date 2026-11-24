@@ -1,0 +1,66 @@
+name: macos-app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'egui-kit/**'
+      - 'gallery/**'
+      - '.github/workflows/macos.yml'
+  release:
+    types: [created]
+
+jobs:
+  bundle:
+    runs-on: macos-14          # Apple silicon runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build gallery
+        run: cargo build --release -p gallery --target aarch64-apple-darwin
+
+      - name: Bundle .app
+        run: |
+          APP="dist/egui-kit Gallery.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp target/aarch64-apple-darwin/release/gallery "$APP/Contents/MacOS/gallery"
+          cat > "$APP/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>egui-kit Gallery</string>
+            <key>CFBundleDisplayName</key><string>egui-kit Gallery</string>
+            <key>CFBundleIdentifier</key><string>ir.rohambob.egui-kit.gallery</string>
+            <key>CFBundleExecutable</key><string>gallery</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          codesign --force --deep --sign - "$APP" 2>/dev/null || echo "ad-hoc signing skipped"
+          ditto -c -k --keepParent "$APP" dist/egui-kit-gallery-macos-arm64.zip
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: egui-kit-gallery-macos-arm64
+          path: dist/egui-kit-gallery-macos-arm64.zip
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/egui-kit-gallery-macos-arm64.zip

@@ -7,3 +7,10 @@ description = "gpui-kit-style components for egui: one trait, zero config."
 
 [dependencies]
 egui.workspace = true
+egui_plot = { version = "0.38", optional = true }
+egui_extras = { version = "0.37", optional = true }
+
+[features]
+default = []
+chart = ["dep:egui_plot"]
+table = ["dep:egui_extras"]

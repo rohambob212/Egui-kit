@@ -18,6 +18,7 @@ fn main() -> eframe::Result<()> {
                 dark: std::env::var("GALLERY_LIGHT").is_err(),
                 page: match std::env::var("GALLERY_PAGE").as_deref() {
                     Ok("widgets") => Page::Widgets,
+                    Ok("data") => Page::Data,
                     Ok("overlays") => Page::Overlays,
                     _ => Page::Theme,
                 },
@@ -61,6 +62,7 @@ fn main() -> eframe::Result<()> {
 enum Page {
     Theme,
     Widgets,
+    Data,
     Overlays,
 }
 
@@ -103,6 +105,7 @@ struct App {
 const PAGES: &[(Page, &str)] = &[
     (Page::Theme, "Theme"),
     (Page::Widgets, "Widgets"),
+    (Page::Data, "Data"),
     (Page::Overlays, "Overlays"),
 ];
 
@@ -145,6 +148,7 @@ impl eframe::App for App {
             egui::ScrollArea::vertical().show(ui, |ui| match page {
                 Page::Theme => theme_page(ui),
                 Page::Widgets => widgets_page(ui, self),
+                Page::Data => data_page(ui, self),
                 Page::Overlays => overlays_page(ui, self),
             });
         });
@@ -434,4 +438,31 @@ fn overlays_page(ui: &mut egui::Ui, app: &mut App) {
         ui.add_space(6.0);
         ui.kbd("Esc");
     });
+}
+
+fn data_page(ui: &mut egui::Ui, app: &mut App) {
+    let t = Theme::get(ui.ctx());
+    ui.heading("Data");
+    ui.label(egui::RichText::new("Feature-gated widgets: chart (egui_plot), table (egui_extras).").color(t.text_muted));
+    ui.add_space(12.0);
+
+    let series: Vec<f32> = (0..40).map(|i| (i as f32 * 0.3).sin() * 10.0 + 20.0).collect();
+    ui.label("Line chart");
+    egui_kit::data::line_chart(ui, "cpu", &series);
+    ui.add_space(12.0);
+
+    ui.label("Area chart");
+    egui_kit::data::area_chart(ui, "mem", &series);
+    ui.add_space(12.0);
+
+    ui.label("Bar chart");
+    egui_kit::data::bar_chart(ui, "sales", &[4.0, 8.0, 3.0, 6.5, 9.0, 2.0]);
+    ui.add_space(12.0);
+
+    ui.label("Table");
+    let rows: Vec<Vec<String>> = (0..12)
+        .map(|i| vec![format!("user-{i:02}"), format!("{}", 20 + i), format!("user{i}@example.com")])
+        .collect();
+    egui_kit::data::table(ui, "users", &["Name", "Age", "Email"], &rows);
+    let _ = app;
 }

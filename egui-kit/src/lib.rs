@@ -5,6 +5,7 @@
 //! ui.kit_button("Save");
 //! ```
 pub mod basic;
+pub mod data;
 pub mod kit;
 pub mod theme;
 
