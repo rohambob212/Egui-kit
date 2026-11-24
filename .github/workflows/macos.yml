@@ -12,7 +12,26 @@ on:
     types: [created]
 
 jobs:
+  linux-binary:
+    # Linux runners are available on the free plan; proves the crate builds in CI.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libwayland-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p gallery
+      - run: tar czf dist-egui-kit-gallery-linux-x86_64.tar.gz -C target/release gallery
+      - uses: actions/upload-artifact@v4
+        with:
+          name: egui-kit-gallery-linux-x86_64
+          path: dist-egui-kit-gallery-linux-x86_64.tar.gz
+
   bundle:
+    # Needs macOS runner minutes: free for public repos, paid for private ones.
+    if: github.event_name != 'push' || vars.MACOS_RUNNERS == 'yes'
     runs-on: macos-14          # Apple silicon runner
     steps:
       - uses: actions/checkout@v4
