@@ -1,6 +1,8 @@
 //! Heavy widgets that need a dependency, each behind its own feature.
 //! The core crate stays dependency-free: enable `chart` / `table` to get these.
+#[cfg(any(feature = "chart", feature = "table"))]
 use crate::Theme;
+#[cfg(any(feature = "chart", feature = "table"))]
 use egui::{Response, Ui};
 
 /// Line chart of one series: `data::line_chart(ui, "cpu", &series)`.

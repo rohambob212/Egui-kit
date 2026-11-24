@@ -18,6 +18,7 @@ fn main() -> eframe::Result<()> {
                 dark: std::env::var("GALLERY_LIGHT").is_err(),
                 page: match std::env::var("GALLERY_PAGE").as_deref() {
                     Ok("widgets") => Page::Widgets,
+                    Ok("misc") => Page::Misc,
                     Ok("data") => Page::Data,
                     Ok("overlays") => Page::Overlays,
                     _ => Page::Theme,
@@ -53,6 +54,7 @@ fn main() -> eframe::Result<()> {
                 sheet_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("sheet"),
                 slide: 0,
                 toasts: Toasts::default(),
+                misc_on: true,
             }))
         }),
     )
@@ -62,6 +64,7 @@ fn main() -> eframe::Result<()> {
 enum Page {
     Theme,
     Widgets,
+    Misc,
     Data,
     Overlays,
 }
@@ -100,11 +103,13 @@ struct App {
     sheet_open: bool,
     slide: usize,
     toasts: Toasts,
+    misc_on: bool,
 }
 
 const PAGES: &[(Page, &str)] = &[
     (Page::Theme, "Theme"),
     (Page::Widgets, "Widgets"),
+    (Page::Misc, "Misc"),
     (Page::Data, "Data"),
     (Page::Overlays, "Overlays"),
 ];
@@ -148,6 +153,7 @@ impl eframe::App for App {
             egui::ScrollArea::vertical().show(ui, |ui| match page {
                 Page::Theme => theme_page(ui),
                 Page::Widgets => widgets_page(ui, self),
+                Page::Misc => misc_page(ui, self),
                 Page::Data => data_page(ui, self),
                 Page::Overlays => overlays_page(ui, self),
             });
@@ -370,6 +376,50 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
     ui.add_space(4.0);
     ui.marker("Yesterday");
     ui.bubble("Standup moved to 10:00.", Side::Left, Some("16:40"));
+}
+
+
+fn misc_page(ui: &mut egui::Ui, app: &mut App) {
+    let t = Theme::get(ui.ctx());
+    ui.heading("Misc");
+    ui.label(egui::RichText::new("Text scale, input group, grid, virtual list, toggle, copy, image.").color(t.text_muted));
+    ui.add_space(12.0);
+
+    ui.label("Text scale");
+    ui.text("Heading text", egui_kit::LabelKind::Heading);
+    ui.text("Body text", egui_kit::LabelKind::Body);
+    ui.text("Muted text", egui_kit::LabelKind::Muted);
+    ui.text("Small text", egui_kit::LabelKind::Small);
+    ui.add_space(12.0);
+
+    ui.label("Input group");
+    ui.input_group(&mut app.name, "https://", "@example.com");
+    ui.add_space(12.0);
+
+    ui.label("Grid layout");
+    let rows: Vec<Vec<String>> = vec![
+        vec!["Region".into(), "eu-west".into(), "12 ms".into()],
+        vec!["Plan".into(), "Infinite".into(), "active".into()],
+        vec!["Seats".into(), "3".into(), "2 used".into()],
+    ];
+    ui.grid_layout("specs", &rows);
+    ui.add_space(12.0);
+
+    ui.label("Virtual list (2000 rows, only visible ones render)");
+    ui.virtual_list(120.0, 2000, |ui, i| {
+        ui.label(format!("row {i}"));
+    });
+    ui.add_space(12.0);
+
+    ui.horizontal(|ui| {
+        ui.toggle("opt", &mut app.misc_on);
+        ui.label("toggle");
+        ui.copy_button("copy-demo", "cargo add egui-kit");
+    });
+    ui.add_space(12.0);
+
+    ui.label("Image (placeholder when the file is missing)");
+    ui.kit_image("missing-image.png", 160.0);
 }
 
 fn overlays_page(ui: &mut egui::Ui, app: &mut App) {

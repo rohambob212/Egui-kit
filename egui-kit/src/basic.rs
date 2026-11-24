@@ -1528,3 +1528,177 @@ pub fn message(ui: &mut Ui, author: &str, text: &str, side: Side, time: &str) ->
     })
     .response
 }
+
+/// Virtualized list: only visible rows render. `ui.virtual_list(180.0, n, |ui, i| ...)`.
+pub fn virtual_list(ui: &mut Ui, height: f32, len: usize, mut row: impl FnMut(&mut Ui, usize)) {
+    let row_h = 22.0;
+    egui::ScrollArea::vertical()
+        .max_height(height)
+        .show_rows(ui, row_h, len, |ui, range| {
+            for i in range {
+                ui.allocate_ui(egui::vec2(ui.available_width(), row_h), |ui| row(ui, i));
+            }
+        });
+}
+
+/// Column-aligned key/value grid, any number of columns: `ui.grid_layout("specs", &rows)`.
+pub fn grid_layout(ui: &mut Ui, id: &str, rows: &[Vec<String>]) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let cols = rows.first().map_or(1, Vec::len).max(1);
+    egui::Grid::new(egui::Id::unique(id))
+        .num_columns(cols)
+        .spacing([16.0, 6.0])
+        .show(ui, |ui| {
+            for row in rows {
+                for (c, cell) in row.iter().enumerate() {
+                    let text = RichText::new(cell);
+                    ui.label(if c == 0 { text.color(theme.text_muted) } else { text });
+                }
+                ui.end_row();
+            }
+        })
+        .response
+}
+
+/// Input with a prefix/suffix chip: `ui.input_group(&mut text, "https://", "@example.com")`.
+pub fn input_group(ui: &mut Ui, text: &mut String, prefix: &str, suffix: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let chip = |ui: &mut Ui, label: &str| {
+        ui.label(RichText::new(label).small().color(theme.text_muted));
+    };
+    egui::Frame::new()
+        .fill(theme.surface)
+        .stroke(Stroke::new(1.0, theme.border))
+        .corner_radius(CornerRadius::same(theme.radius as u8))
+        .inner_margin(6.0)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if !prefix.is_empty() {
+                    chip(ui, prefix);
+                }
+                let suffix_w = ui
+                    .painter()
+                    .layout_no_wrap(suffix.to_owned(), FontId::proportional(11.0), theme.text_muted)
+                    .size()
+                    .x
+                    + 12.0;
+                ui.add(
+                    egui::TextEdit::singleline(text)
+                        .frame(egui::Frame::NONE)
+                        .desired_width((ui.available_width() - suffix_w).max(60.0)),
+                );
+                if !suffix.is_empty() {
+                    chip(ui, suffix);
+                }
+            });
+        })
+        .response
+}
+
+/// Image with a themed placeholder when it cannot be loaded.
+/// Real files/URLs need an image loader installed (egui_extras' "image" feature);
+/// without one this always shows the placeholder.
+pub fn kit_image(ui: &mut Ui, uri: &str, max_width: f32) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let loaded = ui.ctx().try_load_texture(
+        uri,
+        egui::TextureOptions::LINEAR,
+        egui::load::SizeHint::default(),
+    );
+    if loaded.is_ok() {
+        return ui.add(
+            egui::Image::new(uri)
+                .max_width(max_width)
+                .corner_radius(CornerRadius::same(theme.radius as u8)),
+        );
+    }
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(max_width, 80.0), Sense::hover());
+    if ui.is_rect_visible(rect) {
+        let radius = CornerRadius::same(theme.radius as u8);
+        ui.painter().rect_filled(rect, radius, theme.surface);
+        ui.painter().rect_stroke(rect, radius, Stroke::new(1.0, theme.border), StrokeKind::Inside);
+        ui.painter().text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            "no image",
+            FontId::proportional(12.0),
+            theme.text_muted,
+        );
+    }
+    resp
+}
+
+/// Text label with the kit's type ramp: `ui.text("Title", LabelKind::Heading)`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum LabelKind {
+    Heading,
+    Body,
+    Muted,
+    Small,
+}
+
+pub fn text(ui: &mut Ui, value: &str, kind: LabelKind) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let text = match kind {
+        LabelKind::Heading => RichText::new(value).size(18.0).strong(),
+        LabelKind::Body => RichText::new(value),
+        LabelKind::Muted => RichText::new(value).color(theme.text_muted),
+        LabelKind::Small => RichText::new(value).small().color(theme.text_muted),
+    };
+    ui.label(text)
+}
+
+/// Small icon-button toggle with a drawn check mark: `ui.toggle("bold", &mut on)`.
+pub fn toggle(ui: &mut Ui, id: &str, on: &mut bool) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let (rect, mut resp) = ui.allocate_exact_size(egui::vec2(30.0, 26.0), Sense::click());
+    if resp.clicked() {
+        *on = !*on;
+        resp.mark_changed();
+    }
+    let _ = id;
+    if ui.is_rect_visible(rect) {
+        let radius = CornerRadius::same(theme.radius as u8);
+        let (fill, stroke) = if *on {
+            (theme.primary.gamma_multiply(0.25), theme.primary)
+        } else if resp.hovered() {
+            (theme.surface_hover, theme.border)
+        } else {
+            (theme.surface, theme.border)
+        };
+        ui.painter().rect_filled(rect, radius, fill);
+        ui.painter().rect_stroke(rect, radius, Stroke::new(1.0, stroke), StrokeKind::Inside);
+        let c = rect.center();
+        let s = 5.0;
+        let color = if *on { theme.primary } else { theme.text_muted };
+        ui.painter().line_segment(
+            [c + egui::vec2(-s, 0.0), c + egui::vec2(-2.0, s * 0.8)],
+            Stroke::new(2.0, color),
+        );
+        ui.painter().line_segment(
+            [c + egui::vec2(-2.0, s * 0.8), c + egui::vec2(s, -s * 0.7)],
+            Stroke::new(2.0, color),
+        );
+    }
+    resp
+}
+
+/// Copy-to-clipboard button that confirms on click: `ui.copy_button("code", "cargo add egui-kit")`.
+pub fn copy_button(ui: &mut Ui, id: &str, value: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let done_id = egui::Id::unique(id).with("copied");
+    let copied_at: Option<f64> = ui.ctx().data(|d| d.get_temp(done_id));
+    let now = ui.input(|i| i.time);
+    let just_copied = copied_at.is_some_and(|t| now - t < 1.2);
+    let label = if just_copied { "copied" } else { "copy" };
+    let color = if just_copied { theme.success } else { theme.text_muted };
+    let resp = ui.add(Button::new(RichText::new(label).color(color)).fill(theme.surface));
+    if resp.clicked() {
+        ui.ctx().copy_text(value.to_owned());
+        ui.ctx().data_mut(|d| d.insert_temp(done_id, now));
+    }
+    if just_copied {
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+    }
+    resp
+}

@@ -101,6 +101,20 @@ pub trait KitUi {
     fn marker(&mut self, text: &str) -> Response;
     /// Avatar + author + bubble: `ui.message("Ada", "hello", Side::Left, "09:12")`.
     fn message(&mut self, author: &str, text: &str, side: Side, time: &str) -> Response;
+    /// Virtualized list of `len` rows inside a fixed-height scroll area.
+    fn virtual_list(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize));
+    /// Column-aligned grid of string rows.
+    fn grid_layout(&mut self, id: &str, rows: &[Vec<String>]) -> Response;
+    /// Input with prefix/suffix chips.
+    fn input_group(&mut self, text: &mut String, prefix: &str, suffix: &str) -> Response;
+    /// Image with a themed placeholder fallback (egui's own `ui.image` is shadowed, so this is `kit_image`).
+    fn kit_image(&mut self, uri: &str, max_width: f32) -> Response;
+    /// Text with the kit type ramp.
+    fn text(&mut self, value: &str, kind: crate::basic::LabelKind) -> Response;
+    /// Small icon-button toggle.
+    fn toggle(&mut self, id: &str, on: &mut bool) -> Response;
+    /// Copy-to-clipboard button.
+    fn copy_button(&mut self, id: &str, value: &str) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -302,5 +316,33 @@ impl KitUi for Ui {
 
     fn message(&mut self, author: &str, text: &str, side: Side, time: &str) -> Response {
         basic::message(self, author, text, side, time)
+    }
+
+    fn virtual_list(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize)) {
+        basic::virtual_list(self, height, len, row)
+    }
+
+    fn grid_layout(&mut self, id: &str, rows: &[Vec<String>]) -> Response {
+        basic::grid_layout(self, id, rows)
+    }
+
+    fn input_group(&mut self, text: &mut String, prefix: &str, suffix: &str) -> Response {
+        basic::input_group(self, text, prefix, suffix)
+    }
+
+    fn kit_image(&mut self, uri: &str, max_width: f32) -> Response {
+        basic::kit_image(self, uri, max_width)
+    }
+
+    fn text(&mut self, value: &str, kind: crate::basic::LabelKind) -> Response {
+        basic::text(self, value, kind)
+    }
+
+    fn toggle(&mut self, id: &str, on: &mut bool) -> Response {
+        basic::toggle(self, id, on)
+    }
+
+    fn copy_button(&mut self, id: &str, value: &str) -> Response {
+        basic::copy_button(self, id, value)
     }
 }
