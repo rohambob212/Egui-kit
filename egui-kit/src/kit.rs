@@ -21,6 +21,16 @@ pub trait KitUi {
     fn alert(&mut self, text: &str, variant: Variant) -> Response;
     /// Shimmering loading block: `ui.skeleton(180.0, 12.0)`.
     fn skeleton(&mut self, width: f32, height: f32) -> Response;
+    /// Star rating, 0..=max: `ui.rating(&mut value, 5)`.
+    fn rating(&mut self, value: &mut u8, max: u8) -> Response;
+    /// Numbered progress circles: `ui.stepper(1, 4)`.
+    fn stepper(&mut self, step: usize, total: usize) -> Response;
+    /// Prev/numbers/Next: `ui.pagination(&mut page, 10)`.
+    fn pagination(&mut self, page: &mut usize, total_pages: usize) -> Response;
+    /// Underline tabs: `ui.tabs(&["One", "Two"], &mut selected)`.
+    fn tabs(&mut self, labels: &[&str], selected: &mut usize) -> Response;
+    /// Collapsible section header: `ui.accordion("Advanced", &mut open, |ui| ...)`.
+    fn accordion(&mut self, title: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -62,5 +72,25 @@ impl KitUi for Ui {
 
     fn skeleton(&mut self, width: f32, height: f32) -> Response {
         basic::skeleton(self, width, height)
+    }
+
+    fn rating(&mut self, value: &mut u8, max: u8) -> Response {
+        basic::rating(self, "rating", value, max)
+    }
+
+    fn stepper(&mut self, step: usize, total: usize) -> Response {
+        basic::stepper(self, step, total)
+    }
+
+    fn pagination(&mut self, page: &mut usize, total_pages: usize) -> Response {
+        basic::pagination(self, page, total_pages)
+    }
+
+    fn tabs(&mut self, labels: &[&str], selected: &mut usize) -> Response {
+        basic::tabs(self, labels, selected)
+    }
+
+    fn accordion(&mut self, title: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) -> Response {
+        basic::accordion(self, title, open, body)
     }
 }

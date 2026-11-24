@@ -1,6 +1,7 @@
 //! Basic widgets. Thin, themed, stateless.
 use crate::{Theme, Variant};
-use egui::{Button, Color32, FontId, Response, RichText, Ui};
+use egui::{Align2, Button, Color32, CursorIcon, FontId, Response, RichText, Sense, Ui, Vec2};
+use egui::{pos2, vec2, CornerRadius, Rect, Stroke, UiBuilder};
 
 /// Small pill label in the primary color.
 pub fn badge(ui: &mut Ui, text: String) -> Response {
@@ -212,4 +213,257 @@ pub fn skeleton(ui: &mut Ui, width: f32, height: f32) -> Response {
             .rect_filled(rect, theme.radius, theme.surface.gamma_multiply(alpha));
     }
     response
+}
+
+pub fn rating(ui: &mut Ui, id: &str, value: &mut u8, max: u8) -> Response {
+    let theme = Theme::get(ui.ctx());
+    ui.push_id(id, |ui| {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 0.0;
+            let mut last: Option<Response> = None;
+            for i in 1..=max {
+                let (rect, mut resp) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::click());
+                if resp.clicked() {
+                    *value = i;
+                    resp.mark_changed();
+                }
+                if ui.is_rect_visible(rect) {
+                    let color = if i <= *value {
+                        theme.primary
+                    } else {
+                        theme.text_muted
+                    };
+                    star(ui.painter(), rect.center(), 8.0, color);
+                }
+                last = Some(resp.on_hover_cursor(CursorIcon::PointingHand));
+            }
+            match last {
+                Some(resp) => resp,
+                None => ui.allocate_response(Vec2::ZERO, Sense::hover()),
+            }
+        })
+        .inner
+    })
+    .inner
+}
+
+/// `step` is the zero-based index of the current step; labels are shown 1-based.
+pub fn stepper(ui: &mut Ui, step: usize, total: usize) -> Response {
+    let theme = Theme::get(ui.ctx());
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 8.0;
+        let mut last: Option<Response> = None;
+        for i in 0..total {
+            let (rect, resp) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::hover());
+            if ui.is_rect_visible(rect) {
+                let center = rect.center();
+                let painter = ui.painter();
+                let text_color = if i < step {
+                    painter.circle_filled(center, 11.0, theme.primary);
+                    theme.on_primary
+                } else if i == step {
+                    painter.circle_stroke(center, 10.25, Stroke::new(1.5, theme.primary));
+                    theme.text
+                } else {
+                    painter.circle_filled(center, 11.0, theme.surface);
+                    painter.circle_stroke(center, 10.5, Stroke::new(1.0, theme.border));
+                    theme.text
+                };
+                painter.text(
+                    center,
+                    Align2::CENTER_CENTER,
+                    (i + 1).to_string(),
+                    FontId::proportional(11.0),
+                    text_color,
+                );
+            }
+            last = Some(resp);
+        }
+        match last {
+            Some(resp) => resp,
+            None => ui.allocate_response(Vec2::ZERO, Sense::hover()),
+        }
+    })
+    .inner
+}
+
+/// `page` is zero-based; buttons are labelled 1-based.
+pub fn pagination(ui: &mut Ui, page: &mut usize, total_pages: usize) -> Response {
+    let theme = Theme::get(ui.ctx());
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+
+        let current = (*page).min(total_pages.saturating_sub(1));
+        let mut target = current;
+
+        let prev = ui.add_enabled(
+            current > 0,
+            egui::Button::new(RichText::new("Prev").color(theme.text))
+                .fill(theme.surface)
+                .stroke(Stroke::new(1.0, theme.border))
+                .corner_radius(theme.radius),
+        );
+        if prev.clicked() {
+            target = current.saturating_sub(1);
+        }
+
+        let start = current.saturating_sub(2);
+        let end = (start + 5).min(total_pages);
+        let start = end.saturating_sub(5);
+
+        for i in start..end {
+            let is_current = i == current;
+            let (text_color, fill, stroke) = if is_current {
+                (theme.on_primary, theme.primary, Stroke::new(1.0, theme.primary))
+            } else {
+                (theme.text, theme.surface, Stroke::new(1.0, theme.border))
+            };
+            let resp = ui.add(
+                egui::Button::new(RichText::new((i + 1).to_string()).color(text_color))
+                    .fill(fill)
+                    .stroke(stroke)
+                    .corner_radius(theme.radius)
+                    .min_size(vec2(28.0, 0.0)),
+            );
+            if resp.clicked() {
+                target = i;
+            }
+        }
+
+        let next = ui.add_enabled(
+            current + 1 < total_pages,
+            egui::Button::new(RichText::new("Next").color(theme.text))
+                .fill(theme.surface)
+                .stroke(Stroke::new(1.0, theme.border))
+                .corner_radius(theme.radius),
+        );
+        if next.clicked() {
+            target = current + 1;
+        }
+
+        if target != *page && target < total_pages {
+            *page = target;
+        }
+
+        next
+    })
+    .inner
+}
+
+pub fn tabs(ui: &mut Ui, labels: &[&str], selected: &mut usize) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let padding = vec2(10.0, 6.0);
+
+    let inner = ui.horizontal(|ui| {
+        let mut last: Option<Response> = None;
+        let mut items = Vec::with_capacity(labels.len());
+
+        for (i, label) in labels.iter().enumerate() {
+            let galley = ui.painter().layout_no_wrap(
+                (*label).to_owned(),
+                FontId::proportional(14.0),
+                Color32::PLACEHOLDER,
+            );
+            let (rect, mut response) =
+                ui.allocate_exact_size(galley.size() + 2.0 * padding, Sense::click());
+
+            if response.clicked() && *selected != i {
+                *selected = i;
+                response.mark_changed();
+            }
+
+            items.push((rect, galley));
+            last = Some(response);
+        }
+
+        for (i, (rect, galley)) in items.into_iter().enumerate() {
+            if !ui.is_rect_visible(rect) {
+                continue;
+            }
+
+            let active = *selected == i;
+            let color = if active { theme.text } else { theme.text_muted };
+            ui.painter().galley(rect.min + padding, galley, color);
+
+            if active {
+                let underline = Rect::from_min_max(
+                    pos2(rect.left(), rect.bottom() - 2.0),
+                    rect.right_bottom(),
+                );
+                ui.painter()
+                    .rect_filled(underline, CornerRadius::ZERO, theme.primary);
+            }
+        }
+
+        last
+    });
+
+    inner.inner.unwrap_or(inner.response)
+}
+
+pub fn accordion(
+    ui: &mut Ui,
+    title: &str,
+    open: &mut bool,
+    body: impl FnOnce(&mut Ui),
+) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let pad_x = 10.0;
+
+    let (rect, mut response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::click());
+
+    if response.clicked() {
+        *open = !*open;
+        response.mark_changed();
+    }
+
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+
+        painter.rect_filled(rect, CornerRadius::same(theme.radius as u8), theme.surface);
+
+        let title_galley =
+            painter.layout_no_wrap(title.to_owned(), FontId::proportional(14.0), theme.text);
+        let title_pos = pos2(
+            rect.left() + pad_x,
+            rect.center().y - title_galley.size().y / 2.0,
+        );
+        painter.galley(title_pos, title_galley, theme.text);
+
+        let glyph = if *open { "-" } else { "+" };
+        let glyph_galley = painter.layout_no_wrap(
+            glyph.to_owned(),
+            FontId::proportional(14.0),
+            theme.text_muted,
+        );
+        let glyph_pos = pos2(
+            rect.right() - pad_x - glyph_galley.size().x,
+            rect.center().y - glyph_galley.size().y / 2.0,
+        );
+        painter.galley(glyph_pos, glyph_galley, theme.text_muted);
+    }
+
+    if *open {
+        let mut body_rect = ui.available_rect_before_wrap();
+        body_rect.min.x += 12.0;
+        ui.scope_builder(UiBuilder::new().max_rect(body_rect), |ui| body(ui));
+    }
+
+    response
+}
+
+/// Five triangles make a star; no icon font needed.
+fn star(painter: &egui::Painter, center: egui::Pos2, r: f32, color: Color32) {
+    use std::f32::consts::PI;
+    let inner = r * 0.42;
+    for k in 0..5 {
+        let a = -PI / 2.0 + k as f32 * 2.0 * PI / 5.0;
+        let p = |ang: f32, rad: f32| center + rad * egui::vec2(ang.cos(), ang.sin());
+        painter.add(egui::Shape::convex_polygon(
+            vec![p(a, r), p(a - PI / 5.0, inner), p(a + PI / 5.0, inner)],
+            color,
+            egui::Stroke::NONE,
+        ));
+    }
 }
