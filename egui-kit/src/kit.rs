@@ -1,5 +1,5 @@
 //! `KitUi`: every widget is one method on `&mut Ui`. Import this trait and that's it.
-use crate::{basic, Variant};
+use crate::{basic, basic::Side, Variant};
 use egui::{Response, Ui};
 
 pub trait KitUi {
@@ -95,6 +95,12 @@ pub trait KitUi {
     fn toolbar<R>(&mut self, id: &str, add: impl FnOnce(&mut Ui) -> R) -> R;
     /// Bottom status bar with left and right regions.
     fn status_bar(&mut self, id: &str, left: &str, right: &str) -> Response;
+    /// Chat bubble: `ui.bubble("hi", Side::Left, Some("09:12"))`.
+    fn bubble(&mut self, text: &str, side: Side, time: Option<&str>) -> Response;
+    /// Centred conversation marker/separator.
+    fn marker(&mut self, text: &str) -> Response;
+    /// Avatar + author + bubble: `ui.message("Ada", "hello", Side::Left, "09:12")`.
+    fn message(&mut self, author: &str, text: &str, side: Side, time: &str) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -284,5 +290,17 @@ impl KitUi for Ui {
 
     fn status_bar(&mut self, id: &str, left: &str, right: &str) -> Response {
         basic::status_bar(self, id, left, right)
+    }
+
+    fn bubble(&mut self, text: &str, side: Side, time: Option<&str>) -> Response {
+        basic::bubble(self, text, side, time)
+    }
+
+    fn marker(&mut self, text: &str) -> Response {
+        basic::marker(self, text)
+    }
+
+    fn message(&mut self, author: &str, text: &str, side: Side, time: &str) -> Response {
+        basic::message(self, author, text, side, time)
     }
 }

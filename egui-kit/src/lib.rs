@@ -8,7 +8,7 @@ pub mod basic;
 pub mod kit;
 pub mod theme;
 
-pub use basic::Toasts;
+pub use basic::{Side, Toasts};
 pub use kit::KitUi;
 pub use theme::Theme;
 

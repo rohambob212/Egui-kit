@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui_kit::{KitUi, Theme, Toasts, Variant};
+use egui_kit::{KitUi, Side, Theme, Toasts, Variant};
 
 fn main() -> eframe::Result<()> {
     let height: f32 = std::env::var("GALLERY_H").ok().and_then(|h| h.parse().ok()).unwrap_or(760.0);
@@ -356,6 +356,16 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
 "#);
     ui.add_space(12.0);
     ui.empty("Nothing here yet", "Create your first item");
+    ui.add_space(12.0);
+
+    ui.label("Chat");
+    ui.marker("Today");
+    ui.message("Grace Hopper", "Found the bug — it was an off-by-one.", Side::Left, "09:12");
+    ui.add_space(4.0);
+    ui.message("Ada Lovelace", "Nice. Ship it.", Side::Right, "09:13");
+    ui.add_space(4.0);
+    ui.marker("Yesterday");
+    ui.bubble("Standup moved to 10:00.", Side::Left, Some("16:40"));
 }
 
 fn overlays_page(ui: &mut egui::Ui, app: &mut App) {

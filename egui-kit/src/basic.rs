@@ -1428,3 +1428,103 @@ impl Toasts {
         ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
     }
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Left,
+    Right,
+}
+
+pub fn bubble(ui: &mut Ui, text: &str, side: Side, time: Option<&str>) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let (fill, fg) = match side {
+        Side::Right => (theme.primary, theme.on_primary),
+        Side::Left => (theme.surface, theme.text),
+    };
+    let pad = egui::vec2(10.0, 8.0);
+    let max_width = (ui.available_width() - pad.x * 2.0).clamp(1.0, 320.0);
+    let galley = ui
+        .painter()
+        .layout(text.to_owned(), FontId::proportional(14.0), fg, max_width);
+    let time_galley = time.map(|t| {
+        ui.painter()
+            .layout_no_wrap(t.to_owned(), FontId::proportional(10.0), theme.text_muted)
+    });
+    let time_size = time_galley
+        .as_ref()
+        .map_or(Vec2::ZERO, |g| g.size() + egui::vec2(0.0, 2.0));
+    let size = egui::vec2(
+        galley.size().x.max(time_size.x),
+        galley.size().y + time_size.y,
+    ) + pad * 2.0;
+
+    ui.horizontal(|ui| {
+        if side == Side::Right {
+            let gap = ui.available_width() - size.x;
+            if gap.is_finite() && gap > 0.0 {
+                ui.add_space(gap);
+            }
+        }
+        let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+        if ui.is_rect_visible(rect) {
+            let radius = CornerRadius::same((theme.radius as f32 + 6.0) as u8);
+            let painter = ui.painter();
+            painter.rect_filled(rect, radius, fill);
+            if side == Side::Left {
+                let stroke = Stroke::new(1.0, theme.border);
+                painter.rect_stroke(rect, radius, stroke, StrokeKind::Inside);
+            }
+            let origin = rect.min + pad;
+            painter.galley(origin, galley.clone(), fg);
+            if let Some(tg) = &time_galley {
+                let pos = egui::pos2(
+                    rect.right() - pad.x - tg.size().x,
+                    origin.y + galley.size().y + 2.0,
+                );
+                painter.galley(pos, tg.clone(), theme.text_muted);
+            }
+        }
+        response
+    })
+    .inner
+}
+
+pub fn marker(ui: &mut Ui, text: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let width = ui.available_width();
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, 18.0), Sense::hover());
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let galley =
+            painter.layout_no_wrap(text.to_owned(), FontId::proportional(11.0), theme.text_muted);
+        let chip_size = egui::vec2(galley.size().x + 16.0, rect.height());
+        let chip = Rect::from_center_size(rect.center(), chip_size);
+        let stroke = Stroke::new(1.0, theme.border);
+        let y = rect.center().y;
+        let left_end = (chip.left() - 8.0).max(rect.left());
+        let right_start = (chip.right() + 8.0).min(rect.right());
+        painter.line_segment([egui::pos2(rect.left(), y), egui::pos2(left_end, y)], stroke);
+        painter.line_segment([egui::pos2(right_start, y), egui::pos2(rect.right(), y)], stroke);
+        painter.rect_filled(chip, CornerRadius::same(9), theme.surface);
+        painter.galley(chip.center() - galley.size() / 2.0, galley, theme.text_muted);
+    }
+    response
+}
+
+pub fn message(ui: &mut Ui, author: &str, text: &str, side: Side, time: &str) -> Response {
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 4.0;
+        let layout = match side {
+            Side::Left => egui::Layout::left_to_right(egui::Align::Center),
+            Side::Right => egui::Layout::right_to_left(egui::Align::Center),
+        };
+        let row = egui::vec2(ui.available_width(), 28.0);
+        ui.allocate_ui_with_layout(row, layout, |ui| {
+            ui.spacing_mut().item_spacing.x = 8.0;
+            avatar(ui, author, 28.0);
+            ui.label(egui::RichText::new(author).size(12.0).strong());
+        });
+        bubble(ui, text, side, Some(time));
+    })
+    .response
+}
