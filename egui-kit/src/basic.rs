@@ -961,3 +961,147 @@ pub fn date_picker(ui: &mut Ui, id: &str, year: &mut i32, month: &mut u32, day: 
     })
     .inner
 }
+
+pub struct Node<'a> {
+    pub label: &'a str,
+    pub children: Vec<Node<'a>>,
+}
+
+impl<'a> Node<'a> {
+    pub fn leaf(label: &'a str) -> Self {
+        Self { label, children: Vec::new() }
+    }
+
+    pub fn branch(label: &'a str, children: Vec<Node<'a>>) -> Self {
+        Self { label, children }
+    }
+}
+
+pub fn tree(ui: &mut Ui, id: &str, nodes: &[Node<'_>], selected: &mut Option<Vec<usize>>) -> Response {
+    fn rows(
+        ui: &mut Ui,
+        theme: &Theme,
+        nodes: &[Node<'_>],
+        path: &mut Vec<usize>,
+        expanded: &mut Vec<Vec<usize>>,
+        selected: &mut Option<Vec<usize>>,
+        changed: &mut bool,
+    ) {
+        for (i, node) in nodes.iter().enumerate() {
+            path.push(i);
+            let has_children = !node.children.is_empty();
+            let (rect, resp) =
+                ui.allocate_exact_size(egui::vec2(ui.available_width(), 30.0), egui::Sense::click());
+            let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+            let x = rect.left() + 8.0 + (path.len() - 1) as f32 * 14.0;
+
+            if resp.clicked() {
+                let on_glyph =
+                    has_children && resp.interact_pointer_pos().is_some_and(|p| p.x < x + 16.0);
+                if on_glyph {
+                    if let Some(at) = expanded.iter().position(|p| *p == *path) {
+                        expanded.swap_remove(at);
+                    } else {
+                        expanded.push(path.clone());
+                    }
+                } else {
+                    *selected = Some(path.clone());
+                    *changed = true;
+                }
+            }
+
+            let is_selected = selected.as_deref() == Some(path.as_slice());
+            let is_open = has_children && expanded.contains(&*path);
+
+            if ui.is_rect_visible(rect) {
+                let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+                let radius = egui::CornerRadius::same(theme.radius as u8);
+                if is_selected {
+                    painter.rect_filled(rect, radius, theme.primary.gamma_multiply(0.18));
+                } else if resp.hovered() {
+                    painter.rect_filled(rect, radius, theme.surface_hover);
+                }
+                if has_children {
+                    painter.text(
+                        egui::pos2(x, rect.center().y),
+                        egui::Align2::LEFT_CENTER,
+                        if is_open { "-" } else { "+" },
+                        egui::FontId::monospace(13.0),
+                        theme.text_muted,
+                    );
+                }
+                painter.text(
+                    egui::pos2(x + 16.0, rect.center().y),
+                    egui::Align2::LEFT_CENTER,
+                    node.label,
+                    egui::FontId::proportional(14.0),
+                    theme.text,
+                );
+            }
+
+            if is_open {
+                rows(ui, theme, &node.children, path, expanded, selected, changed);
+            }
+            path.pop();
+        }
+    }
+
+    let theme = Theme::get(ui.ctx());
+    // egui has no `Id::unique`; `Id::new` is the hashing constructor.
+    let state_id = egui::Id::unique(id).with("tree_expanded");
+    let mut expanded = ui
+        .ctx()
+        .data(|d| d.get_temp::<Vec<Vec<usize>>>(state_id))
+        .unwrap_or_default();
+    let mut changed = false;
+    let before = expanded.clone();
+
+    let mut response = ui
+        .vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            rows(ui, &theme, nodes, &mut Vec::new(), &mut expanded, selected, &mut changed);
+        })
+        .response;
+
+    if expanded != before {
+        ui.ctx().data_mut(|d| d.insert_temp(state_id, expanded));
+    }
+    if changed {
+        response.mark_changed();
+    }
+    response
+}
+
+pub fn diff(ui: &mut Ui, patch: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let panel = ui.visuals().panel_fill;
+    let font = egui::FontId::monospace(12.0);
+
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        for line in patch.lines() {
+            let (bg, fg) = if line.starts_with("@@") {
+                (theme.surface, theme.primary)
+            } else if line.starts_with('+') {
+                (theme.success.gamma_multiply(0.18), theme.success)
+            } else if line.starts_with('-') {
+                (theme.danger.gamma_multiply(0.18), theme.danger)
+            } else {
+                (panel, theme.text_muted)
+            };
+
+            let (rect, _) =
+                ui.allocate_exact_size(egui::vec2(ui.available_width(), 16.0), egui::Sense::hover());
+            if !ui.is_rect_visible(rect) {
+                continue;
+            }
+
+            let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+            painter.rect_filled(rect, egui::CornerRadius::ZERO, bg);
+            let galley = painter.layout_no_wrap(line.to_owned(), font.clone(), fg);
+            let pos = egui::pos2(rect.left() + 8.0, rect.center().y - galley.size().y / 2.0);
+            painter.galley(pos, galley, fg);
+        }
+    })
+    .response
+}

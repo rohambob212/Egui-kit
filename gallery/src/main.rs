@@ -43,6 +43,7 @@ fn main() -> eframe::Result<()> {
                 year: 2026,
                 month: 11,
                 day: None,
+                tree_sel: None,
             }))
         }),
     )
@@ -79,6 +80,7 @@ struct App {
     year: i32,
     month: u32,
     day: Option<u32>,
+    tree_sel: Option<Vec<usize>>,
 }
 
 const PAGES: &[(Page, &str)] = &[(Page::Theme, "Theme"), (Page::Widgets, "Widgets")];
@@ -300,6 +302,30 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
 
     ui.label("Calendar");
     ui.calendar(&mut app.year, &mut app.month, &mut app.day);
+    ui.add_space(12.0);
+
+    ui.label("Tree");
+    let nodes = [
+        egui_kit::basic::Node::branch("src", vec![
+            egui_kit::basic::Node::leaf("main.rs"),
+            egui_kit::basic::Node::branch("ui", vec![
+                egui_kit::basic::Node::leaf("button.rs"),
+                egui_kit::basic::Node::leaf("theme.rs"),
+            ]),
+        ]),
+        egui_kit::basic::Node::leaf("Cargo.toml"),
+    ];
+    ui.tree("files", &nodes, &mut app.tree_sel);
+    ui.add_space(12.0);
+
+    ui.label("Diff");
+    ui.diff(r#"@@ -1,4 +1,5 @@
+ fn main() {
+-    let x = 1;
++    let x = 2;
++    println!("{x}");
+ }
+"#);
     ui.add_space(12.0);
     ui.empty("Nothing here yet", "Create your first item");
 }

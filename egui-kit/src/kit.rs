@@ -73,6 +73,10 @@ pub trait KitUi {
     fn calendar(&mut self, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response;
     /// Button that expands the calendar inline: `ui.date_picker("start", &mut y, &mut m, &mut day)`.
     fn date_picker(&mut self, id: &str, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response;
+    /// Indented tree with expand/collapse: `ui.tree("files", &nodes, &mut selected_path)`.
+    fn tree(&mut self, id: &str, nodes: &[crate::basic::Node<'_>], selected: &mut Option<Vec<usize>>) -> Response;
+    /// Unified-diff renderer: `ui.diff(patch_text)`.
+    fn diff(&mut self, patch: &str) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -218,5 +222,13 @@ impl KitUi for Ui {
 
     fn date_picker(&mut self, id: &str, year: &mut i32, month: &mut u32, day: &mut Option<u32>) -> Response {
         basic::date_picker(self, id, year, month, day)
+    }
+
+    fn tree(&mut self, id: &str, nodes: &[crate::basic::Node<'_>], selected: &mut Option<Vec<usize>>) -> Response {
+        basic::tree(self, id, nodes, selected)
+    }
+
+    fn diff(&mut self, patch: &str) -> Response {
+        basic::diff(self, patch)
     }
 }
