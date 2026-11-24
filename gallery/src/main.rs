@@ -62,7 +62,7 @@ impl App {
             misc_on: true,
             answers: Vec::new(),
             shown: Page::Theme,
-            code: String::from("fn main() {\n    // edit me\n    println!(\"hello\");\n}\n"),
+            code: String::from("fn main() {\n    // edit me\n    println!(\"hello\");\n}"),
             dock_state: {
                 let mut tabs = Vec::new();
                 tabs.push(String::from("Files"));
@@ -471,7 +471,7 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
         ui.rating(&mut app.rating, 5);
     });
 
-    section(ui, "Stepper", "Four numbered steps, the active one filled.", |ui| {
+    section(ui, "Stepper", "Done steps fill, the active step rings.", |ui| {
         if ui.stepper(app.step, 4).clicked() {
             app.step = (app.step + 1) % 4;
         }
@@ -538,8 +538,9 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             ui.number_input(&mut app.qty, 0.0..=99.0);
-            ui.slider(&mut app.level, 0.0..=100.0);
         });
+        ui.add_space(6.0);
+        ui.slider(&mut app.level, 0.0..=100.0);
     });
 
     section(ui, "Details", "Grouped key/value rows.", |ui| {
@@ -793,10 +794,18 @@ fn apps_page(ui: &mut egui::Ui, app: &mut App) {
         egui_kit::heavy::editor(ui, &mut app.code, 8);
     });
 
-    section(ui, "Resizable split", "Drag the handle.", |ui| {
-        ui.resizable("split", 220.0, |ui| {
-            ui.group_box("Left pane", |ui| {
-                ui.label("drag the handle to resize");
+    section(ui, "Resizable split", "Drag the divider.", |ui| {
+        ui.horizontal(|ui| {
+            ui.resizable("split", 240.0, |ui| {
+                ui.vertical(|ui| {
+                    ui.strong("Left pane");
+                    ui.label("drag the right edge to resize");
+                });
+            });
+            ui.separator();
+            ui.vertical(|ui| {
+                ui.strong("Right pane");
+                ui.label("takes the remaining width");
             });
         });
     });
@@ -823,7 +832,7 @@ fn apps_page(ui: &mut egui::Ui, app: &mut App) {
                 if i % 2 == 0 { "Ada" } else { "Grace" },
                 lines[i],
                 if i % 2 == 0 { Side::Left } else { Side::Right },
-                "12:0",
+                "12:04",
             );
         });
     });

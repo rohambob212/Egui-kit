@@ -78,7 +78,8 @@ impl Theme {
         v.extreme_bg_color = self.bg;
         v.faint_bg_color = self.surface;
         v.window_stroke = Stroke::new(1.0, self.border);
-        v.selection.bg_fill = self.primary.gamma_multiply(0.35);
+        v.selection.bg_fill = self.primary;
+        v.widgets.inactive.bg_fill = self.surface_hover;
         v.hyperlink_color = self.primary;
         v.warn_fg_color = self.warning;
         v.error_fg_color = self.danger;

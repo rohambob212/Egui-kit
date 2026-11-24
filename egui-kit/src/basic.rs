@@ -160,6 +160,9 @@ pub fn progress(ui: &mut Ui, value: f32) -> Response {
         egui::Sense::hover(),
     );
     if ui.is_rect_visible(rect) {
+        let fraction = ui
+            .ctx()
+            .animate_value_with_time(response.id.with("v"), fraction, 0.25);
         let radius = egui::CornerRadius::same(3);
         let painter = ui.painter();
         painter.rect_filled(rect, radius, theme.surface);
@@ -301,33 +304,50 @@ pub fn rating(ui: &mut Ui, id: &str, value: &mut u8, max: u8) -> Response {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
             let mut last: Option<Response> = None;
+            let mut hovered: Option<u8> = None;
             for i in 1..=max {
                 let (rect, mut resp) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::click());
                 if resp.clicked() {
                     *value = i;
                     resp.mark_changed();
                 }
-                if ui.is_rect_visible(rect) {
-                    let color = if i <= *value {
-                        theme.primary
-                    } else {
-                        theme.text_muted
-                    };
-                    star(ui.painter(), rect.center(), 8.0, color);
+                if resp.hovered() {
+                    hovered = Some(i);
+                    resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
                 }
-                last = Some(resp.on_hover_cursor(CursorIcon::PointingHand));
+                let shown = hovered.unwrap_or(*value);
+                if ui.is_rect_visible(rect) {
+                    let p = ui.painter();
+                    let growth = ui.ctx().animate_bool(resp.id, resp.hovered());
+                    let r = 4.6 + 0.6 * growth;
+                    let center = rect.center();
+                    let filled = i <= shown;
+                    let color = if filled { theme.warning } else { theme.border };
+                    // five-point star: outline when empty, solid when set
+                    let pts: Vec<egui::Pos2> = (0..10)
+                        .map(|k| {
+                            let a = -std::f32::consts::FRAC_PI_2
+                                + k as f32 * std::f32::consts::PI / 5.0;
+                            let rad = if k % 2 == 0 { r } else { r * 0.45 };
+                            center + rad * egui::vec2(a.cos(), a.sin())
+                        })
+                        .collect();
+                    if filled {
+                        p.add(egui::Shape::convex_polygon(pts, color, Stroke::NONE));
+                    } else {
+                        p.add(egui::Shape::closed_line(pts, Stroke::new(1.2, color)));
+                    }
+                }
+                last = Some(resp);
             }
-            match last {
-                Some(resp) => resp,
-                None => ui.allocate_response(Vec2::ZERO, Sense::hover()),
-            }
+            last
         })
         .inner
+        .unwrap_or_else(|| ui.allocate_response(egui::Vec2::ZERO, Sense::hover()))
     })
     .inner
 }
 
-/// `step` is the zero-based index of the current step; labels are shown 1-based.
 pub fn stepper(ui: &mut Ui, step: usize, total: usize) -> Response {
     let theme = Theme::get(ui.ctx());
     ui.horizontal(|ui| {
@@ -338,17 +358,17 @@ pub fn stepper(ui: &mut Ui, step: usize, total: usize) -> Response {
             if ui.is_rect_visible(rect) {
                 let center = rect.center();
                 let painter = ui.painter();
-                let text_color = if i < step {
-                    painter.circle_filled(center, 11.0, theme.primary);
-                    theme.on_primary
-                } else if i == step {
-                    painter.circle_stroke(center, 10.25, Stroke::new(1.5, theme.primary));
-                    theme.text
-                } else {
-                    painter.circle_filled(center, 11.0, theme.surface);
-                    painter.circle_stroke(center, 10.5, Stroke::new(1.0, theme.border));
-                    theme.text
-                };
+                // done fills, active gets a primary ring, upcoming stays neutral
+                let done = ui.ctx().animate_bool(resp.id.with("done"), i < step);
+                let active = ui.ctx().animate_bool(resp.id.with("active"), i == step);
+                painter.circle_filled(center, 11.0, mix(theme.surface, theme.primary, done));
+                let ring = mix(theme.border, theme.primary, done.max(active));
+                painter.circle_stroke(
+                    center,
+                    10.5,
+                    Stroke::new(1.0 + active, ring),
+                );
+                let text_color = mix(theme.text, theme.on_primary, done);
                 painter.text(
                     center,
                     Align2::CENTER_CENTER,
@@ -393,11 +413,14 @@ pub fn pagination(ui: &mut Ui, page: &mut usize, total_pages: usize) -> Response
 
         for i in start..end {
             let is_current = i == current;
-            let (text_color, fill, stroke) = if is_current {
-                (theme.on_primary, theme.primary, Stroke::new(1.0, theme.primary))
-            } else {
-                (theme.text, theme.surface, Stroke::new(1.0, theme.border))
-            };
+            let sel = ui
+                .ctx()
+                .animate_bool(egui::Id::unique("kit-page").with(i), is_current);
+            let (text_color, fill) = (
+                mix(theme.text, theme.on_primary, sel),
+                mix(theme.surface, theme.primary, sel),
+            );
+            let stroke = Stroke::new(1.0, mix(theme.border, theme.primary, sel));
             let resp = ui.add(
                 egui::Button::new(RichText::new((i + 1).to_string()).color(text_color))
                     .fill(fill)
@@ -470,6 +493,12 @@ pub fn tabs(ui: &mut Ui, labels: &[&str], selected: &mut usize) -> Response {
         }
 
         if !rects.is_empty() {
+            let baseline_y = rects[0].bottom() - 0.5;
+            ui.painter().hline(
+                rects[0].left()..=rects[rects.len() - 1].right(),
+                baseline_y,
+                Stroke::new(1.0, theme.border),
+            );
             let lo = (sel_f.floor() as usize).min(rects.len() - 1);
             let hi = (lo + 1).min(rects.len() - 1);
             let t = (sel_f - lo as f32).clamp(0.0, 1.0);
@@ -621,10 +650,10 @@ pub fn otp_input(ui: &mut Ui, code: &mut String, len: usize) -> Response {
             let stroke_color = if i == active {
                 theme.primary
             } else {
-                theme.border
+                theme.border.gamma_multiply(1.6)
             };
 
-            painter.rect_filled(box_rect, radius, theme.surface);
+            painter.rect_filled(box_rect, radius, theme.surface_hover.gamma_multiply(0.6));
             painter.rect_stroke(
                 box_rect,
                 radius,
@@ -752,7 +781,16 @@ fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
 
 /// Native slider, themed.
 pub fn slider(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>) -> Response {
-    ui.add(egui::Slider::new(value, range))
+    // egui sizes the rail from `spacing.slider_width`, and colours it from
+    // `widgets.inactive.bg_fill` — both need setting or the rail vanishes
+    let theme = Theme::get(ui.ctx());
+    ui.scope(|ui| {
+        ui.spacing_mut().slider_width = (ui.available_width() - 96.0).max(120.0);
+        ui.visuals_mut().widgets.inactive.bg_fill = theme.border;
+        ui.visuals_mut().widgets.inactive.corner_radius = egui::CornerRadius::same(4);
+        ui.add(egui::Slider::new(value, range).trailing_fill(true))
+    })
+    .inner
 }
 
 /// Single-line text input in a themed frame.
@@ -1368,6 +1406,12 @@ pub fn sheet(ui: &mut Ui, id: &str, open: &mut bool, body: impl FnOnce(&mut Ui))
 pub fn carousel(ui: &mut Ui, index: &mut usize, count: usize) -> Response {
     let theme = Theme::get(ui.ctx());
     let count = count.max(1);
+    // the index animates, so slides and dots glide instead of snapping
+    let t = ui
+        .ctx()
+        .animate_value_with_time(egui::Id::unique("kit-carousel"), *index as f32, 0.22);
+    let drift = (t - *index as f32) * 22.0; // residual distance while sliding
+    let alpha = (1.0 - drift.abs() / 44.0).clamp(0.25, 1.0);
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
             if ui.button("<").clicked() {
@@ -1376,28 +1420,30 @@ pub fn carousel(ui: &mut Ui, index: &mut usize, count: usize) -> Response {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(300.0, 160.0), Sense::hover());
             if ui.is_rect_visible(rect) {
                 let radius = CornerRadius::same(theme.radius as u8);
-                ui.painter().rect_filled(rect, radius, theme.surface);
-                ui.painter().rect_stroke(rect, radius, Stroke::new(1.0, theme.border), StrokeKind::Inside);
-                ui.painter().text(
-                    rect.center(),
+                let painter = ui.painter();
+                painter.rect_filled(rect, radius, theme.panel);
+                painter.rect_stroke(rect, radius, Stroke::new(1.0, theme.border), StrokeKind::Inside);
+                painter.text(
+                    rect.center() + egui::vec2(drift, 0.0),
                     Align2::CENTER_CENTER,
                     format!("{} / {}", *index + 1, count),
-                    FontId::proportional(14.0),
-                    theme.text_muted,
+                    FontId::proportional(15.0),
+                    theme.text.gamma_multiply(alpha),
                 );
             }
             if ui.button(">").clicked() {
                 *index = (*index + 1) % count;
             }
         });
+        ui.add_space(8.0);
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
             for i in 0..count {
-                let (rect, resp) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), Sense::click());
-                let (size, color) = if i == *index {
-                    (7.0, theme.primary)
-                } else {
-                    (4.0, theme.border)
-                };
+                let (rect, resp) = ui.allocate_exact_size(egui::vec2(14.0, 12.0), Sense::click());
+                // how "selected" this dot is, animated between 0 and 1
+                let sel = (1.0 - (t - i as f32).abs()).clamp(0.0, 1.0);
+                let size = 4.0 + 3.0 * sel;
+                let color = if sel > 0.5 { theme.primary } else { theme.border };
                 ui.painter().circle_filled(rect.center(), size, color);
                 if resp.clicked() {
                     *index = i;
@@ -1979,6 +2025,7 @@ pub fn settings(ui: &mut Ui, title: &str, body: impl FnOnce(&mut Ui)) -> Respons
         .corner_radius(CornerRadius::same(theme.radius as u8))
         .inner_margin(12.0)
         .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
             ui.label(RichText::new(title).strong());
             ui.add_space(6.0);
             body(ui);

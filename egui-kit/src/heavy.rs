@@ -53,6 +53,8 @@ impl egui_dock::TabViewer for KitTabs<'_> {
 pub fn editor(ui: &mut Ui, code: &mut String, rows: usize) -> Response {
     use egui_code_editor::{CodeEditor, Color32Theme, ColorTheme, Syntax};
     let theme: Color32Theme = ColorTheme::GITHUB_DARK.into();
+    // never show more line numbers than there are lines
+    let rows = code.lines().count().clamp(3, rows.max(3));
     let mut editor = CodeEditor::default()
         .with_rows(rows)
         .with_theme(&theme)
