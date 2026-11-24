@@ -665,7 +665,7 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>
 /// Single-line text input in a themed frame.
 pub fn text_input(ui: &mut Ui, text: &mut String, placeholder: &str) -> Response {
     let theme = Theme::get(ui.ctx());
-    frame(ui, theme).show(ui, |ui| {
+    frame(theme).show(ui, |ui| {
         ui.add(egui::TextEdit::singleline(text).hint_text(placeholder).frame(egui::Frame::NONE))
             .on_hover_text(placeholder)
     }).inner
@@ -674,7 +674,7 @@ pub fn text_input(ui: &mut Ui, text: &mut String, placeholder: &str) -> Response
 /// Multi-line text input in a themed frame.
 pub fn textarea(ui: &mut Ui, text: &mut String, rows: usize) -> Response {
     let theme = Theme::get(ui.ctx());
-    frame(ui, theme).show(ui, |ui| {
+    frame(theme).show(ui, |ui| {
         ui.add(egui::TextEdit::multiline(text).desired_rows(rows).frame(egui::Frame::NONE))
     }).inner
 }
@@ -682,12 +682,12 @@ pub fn textarea(ui: &mut Ui, text: &mut String, rows: usize) -> Response {
 /// Numeric input with drag-to-change, in a themed frame.
 pub fn number_input(ui: &mut Ui, value: &mut f64, range: std::ops::RangeInclusive<f64>) -> Response {
     let theme = Theme::get(ui.ctx());
-    frame(ui, theme).show(ui, |ui| {
+    frame(theme).show(ui, |ui| {
         ui.add(egui::DragValue::new(value).range(range).speed(0.1))
     }).inner
 }
 
-fn frame<'a>(ui: &'a Ui, theme: Theme) -> egui::Frame {
+fn frame(theme: Theme) -> egui::Frame {
     egui::Frame::new()
         .fill(theme.surface)
         .stroke(Stroke::new(1.0, theme.border))
