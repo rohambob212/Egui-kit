@@ -41,10 +41,25 @@ primary/danger/warning/success, radius) and `apply(ctx)` writes them into egui's
 matching light/dark `egui::Theme`, plus spacing and text sizes. `Theme::get(ctx)` returns the active
 theme for widget code.
 
+## Live gallery
+
+**https://egui-kit.rohambob.ir** — the same `gallery` binary compiled to wasm (`web` workflow builds it,
+`scripts/deploy-web.sh` publishes it to the host's static dir behind Traefik).
+
 ## Gallery
 
-`cargo run -p gallery` — every widget on one page, light/dark toggle in the top bar.
-`GALLERY_PAGE=widgets` opens straight to the widgets page (used for automated screenshots).
+`cargo run -p gallery` — the widget tour, light/dark toggle in the top bar.
+Pages: Theme, Widgets, Misc, Data (chart/table), Overlays.
+`GALLERY_PAGE=widgets|misc|data|overlays` opens a page directly; `GALLERY_H` sets window height;
+`GALLERY_LIGHT=1` starts light; `GALLERY_OPEN=palette|dialog|sheet` pre-opens an overlay (all used by
+the automated screenshot checks).
+
+## CI
+
+- `.github/workflows/web.yml` — builds the wasm bundle on Linux runners (free) and uploads it.
+- `.github/workflows/macos.yml` — Linux binary artifact always; macOS arm64 `.app` when
+  `MACOS_RUNNERS=yes` is set as a repo variable (macOS minutes need a public repo or paid plan).
+- `scripts/macos-app.sh` — builds the `.app` locally on a Mac in one command.
 
 ## Status
 
