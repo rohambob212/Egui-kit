@@ -77,6 +77,16 @@ pub trait KitUi {
     fn tree(&mut self, id: &str, nodes: &[crate::basic::Node<'_>], selected: &mut Option<Vec<usize>>) -> Response;
     /// Unified-diff renderer: `ui.diff(patch_text)`.
     fn diff(&mut self, patch: &str) -> Response;
+    /// Modal command palette; returns the picked index.
+    fn palette(&mut self, id: &str, open: &mut bool, query: &mut String, items: &[&str]) -> Option<usize>;
+    /// Modal dialog with a title bar.
+    fn dialog(&mut self, id: &str, open: &mut bool, title: &str, body: impl FnOnce(&mut Ui)) -> Response;
+    /// Floating card under an anchor widget.
+    fn popover(&mut self, id: &str, anchor: &Response, open: &mut bool, body: impl FnOnce(&mut Ui));
+    /// Right-hand slide-in panel.
+    fn sheet(&mut self, id: &str, open: &mut bool, body: impl FnOnce(&mut Ui));
+    /// Slide carousel with dots.
+    fn carousel(&mut self, index: &mut usize, count: usize) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -230,5 +240,25 @@ impl KitUi for Ui {
 
     fn diff(&mut self, patch: &str) -> Response {
         basic::diff(self, patch)
+    }
+
+    fn palette(&mut self, id: &str, open: &mut bool, query: &mut String, items: &[&str]) -> Option<usize> {
+        basic::palette(self, id, open, query, items)
+    }
+
+    fn dialog(&mut self, id: &str, open: &mut bool, title: &str, body: impl FnOnce(&mut Ui)) -> Response {
+        basic::dialog(self, id, open, title, body)
+    }
+
+    fn popover(&mut self, id: &str, anchor: &Response, open: &mut bool, body: impl FnOnce(&mut Ui)) {
+        basic::popover(self, id, anchor, open, body)
+    }
+
+    fn sheet(&mut self, id: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) {
+        basic::sheet(self, id, open, body)
+    }
+
+    fn carousel(&mut self, index: &mut usize, count: usize) -> Response {
+        basic::carousel(self, index, count)
     }
 }

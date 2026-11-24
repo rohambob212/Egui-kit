@@ -1105,3 +1105,199 @@ pub fn diff(ui: &mut Ui, patch: &str) -> Response {
     })
     .response
 }
+
+/// Command palette in a modal: type to filter, arrows move, Enter picks.
+pub fn palette(ui: &mut Ui, id: &str, open: &mut bool, query: &mut String, items: &[&str]) -> Option<usize> {
+    if !*open {
+        return None;
+    }
+    let theme = Theme::get(ui.ctx());
+    let needle = query.to_lowercase();
+    let hits: Vec<usize> = items
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| needle.is_empty() || s.to_lowercase().contains(&needle))
+        .map(|(i, _)| i)
+        .take(8)
+        .collect();
+    let hl_id = egui::Id::unique(id).with("highlight");
+    let mut hl = ui
+        .ctx()
+        .data(|d| d.get_temp::<usize>(hl_id))
+        .unwrap_or(0)
+        .min(hits.len().saturating_sub(1));
+    let last = hits.len().saturating_sub(1);
+    let mut picked = None;
+    let modal = egui::Modal::new(egui::Id::unique(id)).show(ui.ctx(), |ui| {
+        ui.set_width(440.0);
+        let search = ui.add(
+            egui::TextEdit::singleline(query)
+                .hint_text("Type a command...")
+                .frame(egui::Frame::NONE)
+                .desired_width(f32::INFINITY),
+        );
+        if !search.has_focus() {
+            search.request_focus();
+        }
+        ui.input(|i| {
+            if i.key_pressed(egui::Key::ArrowDown) {
+                hl = (hl + 1).min(last);
+            }
+            if i.key_pressed(egui::Key::ArrowUp) {
+                hl = hl.saturating_sub(1);
+            }
+            if i.key_pressed(egui::Key::Enter) {
+                picked = hits.get(hl).copied();
+            }
+        });
+        ui.add_space(6.0);
+        for (row, &idx) in hits.iter().enumerate() {
+            let on = row == hl;
+            let text = RichText::new(items[idx]).color(if on { theme.on_primary } else { theme.text });
+            let button = egui::Button::new(text)
+                .fill(if on { theme.primary } else { Color32::TRANSPARENT })
+                .min_size(egui::vec2(ui.available_width(), 26.0));
+            if ui.add(button).clicked() {
+                picked = Some(idx);
+            }
+        }
+        if hits.is_empty() {
+            ui.weak("no match");
+        }
+    });
+    if picked.is_some() || modal.should_close() {
+        *open = false;
+        query.clear();
+    }
+    ui.ctx().data_mut(|d| d.insert_temp(hl_id, hl));
+    picked
+}
+
+/// Modal dialog with a title and a close button.
+pub fn dialog(ui: &mut Ui, id: &str, open: &mut bool, title: &str, body: impl FnOnce(&mut Ui)) -> Response {
+    if !*open {
+        return ui.allocate_response(egui::Vec2::ZERO, Sense::hover());
+    }
+    let modal = egui::Modal::new(egui::Id::unique(id)).show(ui.ctx(), |ui| {
+        ui.set_width(360.0);
+        ui.horizontal(|ui| {
+            ui.heading(title);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.small_button("x").clicked() {
+                    ui.close();
+                }
+            });
+        });
+        ui.add_space(8.0);
+        body(ui);
+    });
+    if modal.should_close() {
+        *open = false;
+    }
+    modal.response
+}
+
+/// Floating card anchored under a widget: `ui.popover("menu", &resp, &mut open, |ui| ...)`.
+pub fn popover(ui: &mut Ui, id: &str, anchor: &Response, open: &mut bool, body: impl FnOnce(&mut Ui)) {
+    if !*open {
+        return;
+    }
+    let theme = Theme::get(ui.ctx());
+    let area = egui::Area::new(egui::Id::unique(id))
+        .fixed_pos(anchor.rect.left_bottom() + egui::vec2(0.0, 6.0))
+        .order(egui::Order::Foreground)
+        .show(ui.ctx(), |ui| {
+            egui::Frame::new()
+                .fill(theme.panel)
+                .stroke(Stroke::new(1.0, theme.border))
+                .corner_radius(CornerRadius::same(theme.radius as u8))
+                .inner_margin(10.0)
+                .show(ui, body);
+        });
+    let clicked_outside = ui.input(|i| i.pointer.any_click())
+        && ui
+            .input(|i| i.pointer.interact_pos())
+            .is_some_and(|p| !area.response.rect.contains(p));
+    if clicked_outside {
+        *open = false;
+    }
+}
+
+/// Right-hand slide-in panel (no animation): `ui.sheet("help", &mut open, |ui| ...)`.
+pub fn sheet(ui: &mut Ui, id: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) {
+    if !*open {
+        return;
+    }
+    let theme = Theme::get(ui.ctx());
+    let mut close = false;
+    egui::Area::new(egui::Id::unique(id))
+        .anchor(egui::Align2::RIGHT_TOP, [-10.0, 10.0])
+        .order(egui::Order::Foreground)
+        .show(ui.ctx(), |ui| {
+            egui::Frame::new()
+                .fill(theme.panel)
+                .stroke(Stroke::new(1.0, theme.border))
+                .corner_radius(CornerRadius::same(theme.radius as u8))
+                .inner_margin(12.0)
+                .show(ui, |ui| {
+                    ui.set_width(280.0);
+                    ui.horizontal(|ui| {
+                        ui.strong("Details");
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.small_button("x").clicked() {
+                                close = true;
+                            }
+                        });
+                    });
+                    ui.add_space(8.0);
+                    body(ui);
+                });
+        });
+    if close {
+        *open = false;
+    }
+}
+
+/// Slide carousel: arrows, dots, and the current index.
+pub fn carousel(ui: &mut Ui, index: &mut usize, count: usize) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let count = count.max(1);
+    ui.vertical(|ui| {
+        ui.horizontal(|ui| {
+            if ui.button("<").clicked() {
+                *index = if *index == 0 { count - 1 } else { *index - 1 };
+            }
+            let (rect, _) = ui.allocate_exact_size(egui::vec2(300.0, 160.0), Sense::hover());
+            if ui.is_rect_visible(rect) {
+                let radius = CornerRadius::same(theme.radius as u8);
+                ui.painter().rect_filled(rect, radius, theme.surface);
+                ui.painter().rect_stroke(rect, radius, Stroke::new(1.0, theme.border), StrokeKind::Inside);
+                ui.painter().text(
+                    rect.center(),
+                    Align2::CENTER_CENTER,
+                    format!("{} / {}", *index + 1, count),
+                    FontId::proportional(14.0),
+                    theme.text_muted,
+                );
+            }
+            if ui.button(">").clicked() {
+                *index = (*index + 1) % count;
+            }
+        });
+        ui.horizontal(|ui| {
+            for i in 0..count {
+                let (rect, resp) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), Sense::click());
+                let (size, color) = if i == *index {
+                    (7.0, theme.primary)
+                } else {
+                    (4.0, theme.border)
+                };
+                ui.painter().circle_filled(rect.center(), size, color);
+                if resp.clicked() {
+                    *index = i;
+                }
+            }
+        });
+    })
+    .response
+}

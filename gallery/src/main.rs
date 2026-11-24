@@ -16,10 +16,10 @@ fn main() -> eframe::Result<()> {
             Theme::dark().apply(&cc.egui_ctx);
             Ok(Box::new(App {
                 dark: std::env::var("GALLERY_LIGHT").is_err(),
-                page: if std::env::var("GALLERY_PAGE").as_deref() == Ok("widgets") {
-                    Page::Widgets
-                } else {
-                    Page::Theme
+                page: match std::env::var("GALLERY_PAGE").as_deref() {
+                    Ok("widgets") => Page::Widgets,
+                    Ok("overlays") => Page::Overlays,
+                    _ => Page::Theme,
                 },
                 rating: 3,
                 step: 1,
@@ -44,6 +44,13 @@ fn main() -> eframe::Result<()> {
                 month: 11,
                 day: None,
                 tree_sel: None,
+                pal_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("palette"),
+                pal_q: String::new(),
+                last_cmd: None,
+                dlg_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("dialog"),
+                pop_open: false,
+                sheet_open: std::env::var("GALLERY_OPEN").as_deref() == Ok("sheet"),
+                slide: 0,
             }))
         }),
     )
@@ -53,6 +60,7 @@ fn main() -> eframe::Result<()> {
 enum Page {
     Theme,
     Widgets,
+    Overlays,
 }
 
 struct App {
@@ -81,9 +89,20 @@ struct App {
     month: u32,
     day: Option<u32>,
     tree_sel: Option<Vec<usize>>,
+    pal_open: bool,
+    pal_q: String,
+    last_cmd: Option<usize>,
+    dlg_open: bool,
+    pop_open: bool,
+    sheet_open: bool,
+    slide: usize,
 }
 
-const PAGES: &[(Page, &str)] = &[(Page::Theme, "Theme"), (Page::Widgets, "Widgets")];
+const PAGES: &[(Page, &str)] = &[
+    (Page::Theme, "Theme"),
+    (Page::Widgets, "Widgets"),
+    (Page::Overlays, "Overlays"),
+];
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -122,6 +141,7 @@ impl eframe::App for App {
             egui::ScrollArea::vertical().show(ui, |ui| match page {
                 Page::Theme => theme_page(ui),
                 Page::Widgets => widgets_page(ui, self),
+                Page::Overlays => overlays_page(ui, self),
             });
         });
     }
@@ -328,4 +348,62 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
 "#);
     ui.add_space(12.0);
     ui.empty("Nothing here yet", "Create your first item");
+}
+
+fn overlays_page(ui: &mut egui::Ui, app: &mut App) {
+    let t = Theme::get(ui.ctx());
+    ui.heading("Overlays");
+    ui.label(egui::RichText::new("Palette, dialog, popover, sheet, carousel.").color(t.text_muted));
+    ui.add_space(12.0);
+
+    ui.horizontal(|ui| {
+        if ui.kit_button("Command palette").clicked() {
+            app.pal_open = true;
+        }
+        if ui.button("Dialog").clicked() {
+            app.dlg_open = true;
+        }
+        if ui.button("Sheet").clicked() {
+            app.sheet_open = true;
+        }
+        let pop = ui.button("Popover");
+        if pop.clicked() {
+            app.pop_open = !app.pop_open;
+        }
+        ui.popover("demo-pop", &pop, &mut app.pop_open, |ui| {
+            ui.label("Floating card content");
+        });
+    });
+    ui.add_space(10.0);
+    ui.label(match app.last_cmd {
+        Some(i) => format!("last command: {}", ["New file", "Open settings", "Toggle theme"][i.min(2)]),
+        None => "no command picked yet".to_owned(),
+    });
+    ui.add_space(14.0);
+
+    ui.label("Carousel");
+    ui.carousel(&mut app.slide, 5);
+    ui.add_space(14.0);
+
+    ui.palette("demo-palette", &mut app.pal_open, &mut app.pal_q, &["New file", "Open settings", "Toggle theme"], )
+        .map(|i| app.last_cmd = Some(i));
+
+    ui.dialog("demo-dialog", &mut app.dlg_open, "Delete project?", |ui| {
+        ui.label("This cannot be undone.");
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            if ui.kit_button("Delete").clicked() {
+                ui.close();
+            }
+            if ui.button("Cancel").clicked() {
+                ui.close();
+            }
+        });
+    });
+
+    ui.sheet("demo-sheet", &mut app.sheet_open, |ui| {
+        ui.label("Slide-in panel content.");
+        ui.add_space(6.0);
+        ui.kbd("Esc");
+    });
 }
