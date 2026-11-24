@@ -31,6 +31,10 @@ pub trait KitUi {
     fn tabs(&mut self, labels: &[&str], selected: &mut usize) -> Response;
     /// Collapsible section header: `ui.accordion("Advanced", &mut open, |ui| ...)`.
     fn accordion(&mut self, title: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) -> Response;
+    /// Digit boxes for a one-time code: `ui.otp_input(&mut code, 6)`.
+    fn otp_input(&mut self, code: &mut String, len: usize) -> Response;
+    /// Hour/minute drag fields: `ui.time_field(&mut hh, &mut mm)`.
+    fn time_field(&mut self, hh: &mut u8, mm: &mut u8) -> Response;
     /// Primary button, the common case.
     fn kit_button(&mut self, text: impl Into<String>) -> Response {
         self.button_v(text, Variant::Primary)
@@ -92,5 +96,13 @@ impl KitUi for Ui {
 
     fn accordion(&mut self, title: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) -> Response {
         basic::accordion(self, title, open, body)
+    }
+
+    fn otp_input(&mut self, code: &mut String, len: usize) -> Response {
+        basic::otp_input(self, code, len)
+    }
+
+    fn time_field(&mut self, hh: &mut u8, mm: &mut u8) -> Response {
+        basic::time_field(self, hh, mm)
     }
 }

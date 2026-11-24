@@ -25,6 +25,9 @@ fn main() -> eframe::Result<()> {
                 page_num: 0,
                 tab: 0,
                 acc_open: false,
+                otp: String::new(),
+                hh: 14,
+                mm: 30,
             }))
         }),
     )
@@ -44,6 +47,9 @@ struct App {
     page_num: usize,
     tab: usize,
     acc_open: bool,
+    otp: String,
+    hh: u8,
+    mm: u8,
 }
 
 const PAGES: &[(Page, &str)] = &[(Page::Theme, "Theme"), (Page::Widgets, "Widgets")];
@@ -180,4 +186,13 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
     ui.accordion("Advanced options", &mut app.acc_open, |ui| {
         ui.label("Hidden until the header is clicked.");
     });
+    ui.add_space(12.0);
+
+    ui.label("One-time code (type digits after clicking)");
+    ui.otp_input(&mut app.otp, 6);
+    ui.add_space(12.0);
+
+    ui.label("Time");
+    ui.time_field(&mut app.hh, &mut app.mm);
+    ui.label(format!("{:02}:{:02}", app.hh, app.mm));
 }

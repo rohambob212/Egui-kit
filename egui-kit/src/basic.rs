@@ -1,7 +1,7 @@
 //! Basic widgets. Thin, themed, stateless.
 use crate::{Theme, Variant};
 use egui::{Align2, Button, Color32, CursorIcon, FontId, Response, RichText, Sense, Ui, Vec2};
-use egui::{pos2, vec2, CornerRadius, Rect, Stroke, UiBuilder};
+use egui::{pos2, vec2, CornerRadius, Rect, Stroke, StrokeKind, UiBuilder};
 
 /// Small pill label in the primary color.
 pub fn badge(ui: &mut Ui, text: String) -> Response {
@@ -466,4 +466,125 @@ fn star(painter: &egui::Painter, center: egui::Pos2, r: f32, color: Color32) {
             egui::Stroke::NONE,
         ));
     }
+}
+
+pub fn otp_input(ui: &mut Ui, code: &mut String, len: usize) -> Response {
+    const BOX_W: f32 = 34.0;
+    const BOX_H: f32 = 40.0;
+    const GAP: f32 = 6.0;
+
+    let theme = Theme::get(ui.ctx());
+    let before = code.clone();
+
+    let total_w = len as f32 * BOX_W + len.saturating_sub(1) as f32 * GAP;
+    let (rect, mut response) =
+        ui.allocate_exact_size(egui::vec2(total_w, BOX_H), Sense::click());
+
+    if response.clicked() {
+        response.request_focus();
+    }
+
+    if response.has_focus() {
+        let events = ui.input(|i| i.events.clone());
+        for event in events {
+            match event {
+                egui::Event::Text(text) => {
+                    for ch in text.chars().filter(|c| c.is_ascii_digit()) {
+                        if code.chars().count() < len {
+                            code.push(ch);
+                        }
+                    }
+                }
+                egui::Event::Key {
+                    key: egui::Key::Backspace,
+                    pressed: true,
+                    ..
+                } => {
+                    code.pop();
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if code.chars().count() > len {
+        *code = code.chars().take(len).collect();
+    }
+
+    if *code != before {
+        response.mark_changed();
+    }
+
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        let radius = CornerRadius::same(theme.radius as u8);
+        let active = code.chars().count();
+        let chars: Vec<char> = code.chars().collect();
+
+        for i in 0..len {
+            let min = egui::pos2(rect.min.x + i as f32 * (BOX_W + GAP), rect.min.y);
+            let box_rect = egui::Rect::from_min_size(min, egui::vec2(BOX_W, BOX_H));
+
+            let stroke_color = if i == active {
+                theme.primary
+            } else {
+                theme.border
+            };
+
+            painter.rect_filled(box_rect, radius, theme.surface);
+            painter.rect_stroke(
+                box_rect,
+                radius,
+                Stroke::new(1.0, stroke_color),
+                StrokeKind::Inside,
+            );
+
+            if let Some(ch) = chars.get(i) {
+                painter.text(
+                    box_rect.center(),
+                    Align2::CENTER_CENTER,
+                    ch,
+                    FontId::monospace(18.0),
+                    theme.text,
+                );
+            }
+        }
+    }
+
+    response
+}
+
+pub fn time_field(ui: &mut Ui, hh: &mut u8, mm: &mut u8) -> Response {
+    let theme = Theme::get(ui.ctx());
+
+    let frame = egui::Frame::new()
+        .fill(theme.surface)
+        .stroke(egui::Stroke::new(1.0, theme.border))
+        .corner_radius(egui::CornerRadius::same(theme.radius as u8))
+        .inner_margin(6.0);
+
+    ui.horizontal(|ui| {
+        let hours = frame
+            .show(ui, |ui| {
+                ui.add(
+                    egui::DragValue::new(hh)
+                        .range(0..=23)
+                        .custom_formatter(|n, _| format!("{:02}", n as i64)),
+                )
+            })
+            .inner;
+
+        ui.label(egui::RichText::new(":").monospace().color(theme.text));
+
+        frame.show(ui, |ui| {
+            ui.add(
+                egui::DragValue::new(mm)
+                    .range(0..=59)
+                    .custom_formatter(|n, _| format!("{:02}", n as i64)),
+            )
+        });
+
+        hours
+    })
+    .inner
 }
