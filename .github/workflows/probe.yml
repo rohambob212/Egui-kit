@@ -1,0 +1,14 @@
+name: probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "linux ok"
+  macos:
+    runs-on: macos-14
+    steps:
+      - run: echo "macos ok" && uname -m
