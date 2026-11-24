@@ -1,8 +1,0 @@
-{
-  "name": "egui-kit",
-  "description": "Complete egui.rs port of gpui-kit components with an interactive developer documentation showcase.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

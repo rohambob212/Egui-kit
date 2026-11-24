@@ -1,0 +1,9 @@
+[package]
+name = "egui-kit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "gpui-kit-style components for egui: one trait, zero config."
+
+[dependencies]
+egui.workspace = true

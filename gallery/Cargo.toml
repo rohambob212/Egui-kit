@@ -1,0 +1,10 @@
+[package]
+name = "gallery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+egui-kit = { path = "../egui-kit" }
+egui.workspace = true
+eframe.workspace = true
