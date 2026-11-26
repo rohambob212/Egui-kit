@@ -72,3 +72,12 @@ Design language credited to [gpui-kit](https://gpui-kit.com) (Longbridge). Code:
 Every page has a URL on the web build: `?page=theme|widgets|misc|data|apps|overlays`
 (e.g. https://egui-kit.rohambob.ir/?page=apps). The native build uses
 `GALLERY_PAGE=apps` instead.
+
+## Self-test mode
+
+The gallery can drive its own widgets in sequence so interactive states can be
+screenshotted and checked: `GALLERY_SELFTEST=1` on native, `?selftest=1` on the web
+build. It steps through tabs, accordion, dialog, sheet, palette, toasts, page
+changes and light mode every 1.5s, and prints the step in the status bar.
+
+Open a single overlay directly with `GALLERY_OPEN=palette|dialog|sheet`.

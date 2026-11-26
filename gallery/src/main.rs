@@ -231,9 +231,97 @@ fn page_from_url() -> Option<String> {
     None
 }
 
+
+/// Self-test driver: `GALLERY_SELFTEST=1` (native) or `?selftest=1` (web) steps through
+/// every interactive widget on a timer so each state can be screenshotted.
+fn selftest_enabled() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        if let Some(search) = web_sys::window().and_then(|w| w.location().search().ok()) {
+            if search.contains("selftest=1") {
+                return true;
+            }
+        }
+        false
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::env::var("GALLERY_SELFTEST").is_ok()
+    }
+}
+
+fn apply_selftest(app: &mut App, ctx: &egui::Context, start: f64) -> usize {
+    let now = ctx.input(|i| i.time);
+    let step = ((now - start) / 1.5) as usize;
+    match step {
+        1 => {
+            app.page = Page::Widgets;
+        }
+        2 => {
+            app.tab = 2;
+        }
+        3 => {
+            app.acc_open = true;
+        }
+        4 => {
+            app.page = Page::Overlays;
+            app.dlg_open = true;
+        }
+        5 => {
+            app.dlg_open = false;
+            app.sheet_open = true;
+        }
+        6 => {
+            app.sheet_open = false;
+            app.pal_open = true;
+        }
+        7 => {
+            app.pal_open = false;
+            let pushed: f64 = ctx
+                .data(|d| d.get_temp(egui::Id::unique("selftest_toast")))
+                .unwrap_or(0.0);
+            if pushed < 0.5 {
+                app.toasts.push("selftest toast", Variant::Primary, now, 3.0);
+                ctx.data_mut(|d| d.insert_temp(egui::Id::unique("selftest_toast"), now));
+            }
+        }
+        8 => {
+            app.page = Page::Data;
+        }
+        9 => {
+            app.page = Page::Apps;
+        }
+        10 => {
+            app.page = Page::Misc;
+            app.alert_dismissed = true;
+        }
+        11 => {
+            app.dark = false;
+        }
+        12 => {
+            app.dark = true;
+            app.page = Page::Theme;
+        }
+        _ => {}
+    }
+    step
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if selftest_enabled() {
+            let start: f64 = ctx
+                .data(|d| d.get_temp(egui::Id::unique("selftest_start")))
+                .unwrap_or_else(|| {
+                    let t = ctx.input(|i| i.time);
+                    ctx.data_mut(|d| d.insert_temp(egui::Id::unique("selftest_start"), t));
+                    t
+                });
+            let step = apply_selftest(self, &ctx, start);
+            ctx.data_mut(|d| d.insert_temp(egui::Id::unique("selftest_step"), step));
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
+        }
         if self.dark {
             Theme::dark().apply(&ctx);
         } else {
@@ -269,7 +357,11 @@ impl eframe::App for App {
             );
         });
 
-        ui.status_bar("status", "ready", "local build");
+        let status = ctx
+            .data(|d| d.get_temp::<usize>(egui::Id::unique("selftest_step")))
+            .map(|s| format!("selftest step {s}"))
+            .unwrap_or_else(|| "ready".to_owned());
+        ui.status_bar("status", &status, "local build");
 
         // -- 210px nav, panel fill, full-width rows with kit icons --
         egui::Panel::left("nav").resizable(false).exact_size(210.0).show(ui, |ui| {

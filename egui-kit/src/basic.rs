@@ -1521,9 +1521,13 @@ pub struct Toasts {
 }
 
 impl Toasts {
-    /// Show a toast for `ttl` seconds.
+    /// Show a toast for `ttl` seconds. The stack keeps at most the newest four.
     pub fn push(&mut self, text: &str, variant: Variant, now: f64, ttl: f64) {
         self.items.push((text.to_owned(), variant, now, now + ttl));
+        if self.items.len() > 4 {
+            let drop = self.items.len() - 4;
+            self.items.drain(..drop);
+        }
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
