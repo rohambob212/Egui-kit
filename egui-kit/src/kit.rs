@@ -129,6 +129,15 @@ pub trait KitUi {
     fn focus_trap(&mut self, id: &str) -> Response;
     /// Chat transcript that sticks to the newest row.
     fn message_scroller(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize));
+    /// Dismissable banner: `ui.alert_dismissable("a1", "msg", Variant::Danger, &mut dismissed)`.
+    fn alert_dismissable(&mut self, id: &str, text: &str, variant: Variant, dismissed: &mut bool) -> Response;
+    /// Multi-line input with a hint and a focus-animating border.
+    fn textarea_hint(&mut self, text: &mut String, rows: usize, hint: &str) -> Response;
+    /// Stepper with connector rails between circles.
+    fn stepper_rail(&mut self, step: usize, total: usize) -> Response;
+    /// Dropdown button with a drawn chevron: `ui.dropdown_menu("m", "Menu", &["a", "b"])`.
+    /// (Named `dropdown_menu` because `Ui::menu_button` already exists in egui.)
+    fn dropdown_menu(&mut self, id: &str, label: &str, items: &[&str]) -> Option<usize>;
     /// Thicker spinner with a smooth arc (egui's own `spinner` is thinner).
     fn kit_spinner(&mut self, size: f32) -> Response;
     /// Labeled progress bar with the percentage on the right.
@@ -396,6 +405,22 @@ impl KitUi for Ui {
 
     fn message_scroller(&mut self, height: f32, len: usize, row: impl FnMut(&mut Ui, usize)) {
         basic::message_scroller(self, height, len, row)
+    }
+
+    fn alert_dismissable(&mut self, id: &str, text: &str, variant: Variant, dismissed: &mut bool) -> Response {
+        basic::alert_dismissable(self, id, text, variant, dismissed)
+    }
+
+    fn textarea_hint(&mut self, text: &mut String, rows: usize, hint: &str) -> Response {
+        basic::textarea_hint(self, text, rows, hint)
+    }
+
+    fn stepper_rail(&mut self, step: usize, total: usize) -> Response {
+        basic::stepper_rail(self, step, total)
+    }
+
+    fn dropdown_menu(&mut self, id: &str, label: &str, items: &[&str]) -> Option<usize> {
+        basic::menu_button(self, id, label, items)
     }
 
     fn kit_spinner(&mut self, size: f32) -> Response {

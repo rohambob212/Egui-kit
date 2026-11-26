@@ -518,76 +518,53 @@ pub fn tabs(ui: &mut Ui, labels: &[&str], selected: &mut usize) -> Response {
     inner.inner.unwrap_or(inner.response)
 }
 
-pub fn accordion(
-    ui: &mut Ui,
-    title: &str,
-    open: &mut bool,
-    body: impl FnOnce(&mut Ui),
-) -> Response {
+pub fn accordion(ui: &mut Ui, title: &str, open: &mut bool, body: impl FnOnce(&mut Ui)) -> Response {
     let theme = Theme::get(ui.ctx());
-    let pad_x = 10.0;
+    let id = ui.id().with(title);
+    let (header_rect, response) =
+        ui.allocate_exact_size(egui::vec2(ui.available_width(), 34.0), egui::Sense::click());
+    let t = ui.ctx().animate_bool(id, *open);
 
-    let (rect, mut response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::click());
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(header_rect, theme.radius, theme.surface);
+    }
+    ui.painter().text(
+        egui::pos2(header_rect.left(), header_rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        title,
+        FontId::proportional(14.0),
+        theme.text,
+    );
+
+    // Chevron drawn by hand so its angle can animate: right (closed) -> down (open).
+    let c = egui::pos2(header_rect.right() - 12.0, header_rect.center().y);
+    let h = 4.0_f32;
+    let angle = t * std::f32::consts::FRAC_PI_2;
+    let d = egui::vec2(angle.cos(), angle.sin());
+    let tip = c + d * h;
+    let rot = |v: egui::Vec2, a: f32| {
+        egui::vec2(v.x * a.cos() - v.y * a.sin(), v.x * a.sin() + v.y * a.cos())
+    };
+    let arm1 = tip + rot(d, 135_f32.to_radians()) * h;
+    let arm2 = tip + rot(d, -135_f32.to_radians()) * h;
+    let chev = egui::Stroke::new(1.5, theme.text_muted);
+    ui.painter().line_segment([tip, arm1], chev);
+    ui.painter().line_segment([tip, arm2], chev);
 
     if response.clicked() {
         *open = !*open;
-        response.mark_changed();
     }
 
-    if ui.is_rect_visible(rect) {
-        let painter = ui.painter();
-
-        painter.rect_filled(rect, CornerRadius::same(theme.radius as u8), theme.surface);
-
-        let title_galley =
-            painter.layout_no_wrap(title.to_owned(), FontId::proportional(14.0), theme.text);
-        let title_pos = pos2(
-            rect.left() + pad_x,
-            rect.center().y - title_galley.size().y / 2.0,
-        );
-        painter.galley(title_pos, title_galley, theme.text);
-
-        let glyph = if *open { "-" } else { "+" };
-        let glyph_galley = painter.layout_no_wrap(
-            glyph.to_owned(),
-            FontId::proportional(14.0),
-            theme.text_muted,
-        );
-        let glyph_pos = pos2(
-            rect.right() - pad_x - glyph_galley.size().x,
-            rect.center().y - glyph_galley.size().y / 2.0,
-        );
-        painter.galley(glyph_pos, glyph_galley, theme.text_muted);
-    }
-
-    let t = ui.ctx().animate_bool(response.id, *open);
-    if *open || t > 0.01 {
+    if t > 0.0 {
         let mut body_rect = ui.available_rect_before_wrap();
         body_rect.min.x += 12.0;
-        body_rect.min.y += (1.0 - t) * 8.0; // slides down as it opens
-        ui.scope_builder(UiBuilder::new().max_rect(body_rect), |ui| {
-            ui.multiply_opacity(t);
-            body(ui);
-        });
+        body_rect.min.y = header_rect.bottom();
+        body_rect.min.y += (1.0 - t) * 8.0;
+        ui.multiply_opacity(t);
+        ui.scope_builder(egui::UiBuilder::new().max_rect(body_rect), |ui| body(ui));
     }
-
     response
-}
-
-/// Five triangles make a star; no icon font needed.
-fn star(painter: &egui::Painter, center: egui::Pos2, r: f32, color: Color32) {
-    use std::f32::consts::PI;
-    let inner = r * 0.42;
-    for k in 0..5 {
-        let a = -PI / 2.0 + k as f32 * 2.0 * PI / 5.0;
-        let p = |ang: f32, rad: f32| center + rad * egui::vec2(ang.cos(), ang.sin());
-        painter.add(egui::Shape::convex_polygon(
-            vec![p(a, r), p(a - PI / 5.0, inner), p(a + PI / 5.0, inner)],
-            color,
-            egui::Stroke::NONE,
-        ));
-    }
 }
 
 pub fn otp_input(ui: &mut Ui, code: &mut String, len: usize) -> Response {
@@ -2088,4 +2065,311 @@ pub fn kit_spinner(ui: &mut Ui, size: f32) -> Response {
         ));
     }
     response
+}
+
+pub fn alert_dismissable(
+    ui: &mut Ui,
+    id: &str,
+    text: &str,
+    variant: Variant,
+    dismissed: &mut bool,
+) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let accent = match variant {
+        Variant::Danger => theme.danger,
+        Variant::Warning => theme.warning,
+        Variant::Success => theme.success,
+        _ => theme.primary,
+    };
+    let anim_id = egui::Id::unique(id).with("dismiss");
+    let t = 1.0 - ui.ctx().animate_bool(anim_id, *dismissed);
+    if t <= 0.0 {
+        return ui
+            .allocate_exact_size(egui::Vec2::ZERO, egui::Sense::hover())
+            .1;
+    }
+
+    let (rect, response) =
+        ui.allocate_exact_size(egui::vec2(ui.available_width(), 38.0), egui::Sense::hover());
+    ui.multiply_opacity(t);
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(
+        rect,
+        theme.radius,
+        Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 36),
+    );
+    painter.rect_stroke(
+        rect,
+        theme.radius,
+        egui::Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 115),
+        ),
+        egui::StrokeKind::Inside,
+    );
+
+    let badge_c = egui::pos2(rect.left() + 21.0, rect.center().y);
+    painter.circle_filled(badge_c, 9.0, accent);
+    let badge_glyph = match variant {
+        Variant::Danger | Variant::Warning => "!",
+        _ => "i",
+    };
+    painter.text(
+        badge_c,
+        egui::Align2::CENTER_CENTER,
+        badge_glyph,
+        FontId::proportional(12.0),
+        readable_on(accent, &theme),
+    );
+    painter.text(
+        egui::pos2(rect.left() + 38.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        text,
+        FontId::proportional(13.0),
+        theme.text,
+    );
+
+    let close_c = egui::pos2(rect.right() - 18.0, rect.center().y);
+    let close_rect = egui::Rect::from_center_size(close_c, egui::vec2(20.0, 20.0));
+    let close_resp = ui.interact(close_rect, anim_id.with("close"), egui::Sense::click());
+    if close_resp.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    let r = 5.0_f32;
+    let xs = egui::Stroke::new(
+        1.5,
+        if close_resp.hovered() {
+            theme.text
+        } else {
+            theme.text_muted
+        },
+    );
+    painter.line_segment([close_c - egui::vec2(r, r), close_c + egui::vec2(r, r)], xs);
+    painter.line_segment([close_c - egui::vec2(r, -r), close_c + egui::vec2(r, -r)], xs);
+    if close_resp.clicked() {
+        *dismissed = true;
+    }
+    response
+}
+
+pub fn textarea_hint(ui: &mut Ui, text: &mut String, rows: usize, hint: &str) -> Response {
+    let theme = Theme::get(ui.ctx());
+    let out = egui::Frame::new()
+        .fill(theme.surface)
+        .stroke(egui::Stroke::new(1.0, theme.border))
+        .corner_radius(theme.radius)
+        .inner_margin(egui::Margin::same(8))
+        .show(ui, |ui| {
+            egui::TextEdit::multiline(text)
+                .desired_rows(rows)
+                .hint_text(hint)
+                .frame(egui::Frame::NONE)
+                .desired_width(f32::INFINITY)
+                .show(ui)
+        });
+    let resp = out.inner.response.response;
+    let focus_t = ui
+        .ctx()
+        .animate_bool(resp.id.with("focus"), resp.has_focus());
+    let border = mix(theme.border, theme.primary, focus_t);
+    let frame_rect = out.response.rect;
+    ui.painter_at(frame_rect).rect_stroke(
+        frame_rect,
+        theme.radius,
+        egui::Stroke::new(1.0, border),
+        egui::StrokeKind::Inside,
+    );
+    resp
+}
+
+pub fn stepper_rail(ui: &mut Ui, step: usize, total: usize) -> Response {
+    let theme = Theme::get(ui.ctx());
+    // 44px pitch leaves a visible run of rail between the 22px circles
+    const PITCH: f32 = 44.0;
+    let n = total.max(1) as f32;
+    let width = (n - 1.0) * PITCH + 22.0;
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, 22.0), egui::Sense::hover());
+    let painter = ui.painter();
+    let cy = rect.center().y;
+    let center = |i: usize| egui::pos2(rect.left() + 11.0 + i as f32 * PITCH, cy);
+
+    // rails first, so the circles paint over their ends
+    for i in 0..total.saturating_sub(1) {
+        let t = ui.ctx().animate_bool(response.id.with(i), i < step);
+        let stroke = egui::Stroke::new(2.5, mix(theme.border, theme.primary, t));
+        painter.hline(center(i).x..=center(i + 1).x, cy, stroke);
+    }
+
+    for i in 0..total {
+        let c = center(i);
+        let label = (i + 1).to_string();
+        let font = FontId::proportional(11.5);
+        if i < step {
+            painter.circle_filled(c, 11.0, theme.primary);
+            painter.text(
+                c,
+                egui::Align2::CENTER_CENTER,
+                &label,
+                font,
+                readable_on(theme.primary, &theme),
+            );
+        } else if i == step {
+            painter.circle_stroke(c, 10.25, egui::Stroke::new(1.5, theme.primary));
+            painter.text(c, egui::Align2::CENTER_CENTER, &label, font, theme.text);
+        } else {
+            painter.circle_filled(c, 11.0, theme.surface);
+            painter.circle_stroke(c, 10.5, egui::Stroke::new(1.0, theme.border));
+            painter.text(c, egui::Align2::CENTER_CENTER, &label, font, theme.text_muted);
+        }
+    }
+    response
+}
+
+pub fn menu_button(ui: &mut Ui, id: &str, label: &str, items: &[&str]) -> Option<usize> {
+    let theme = Theme::get(ui.ctx());
+    let root_id = egui::Id::unique(id);
+    let mut open = ui
+        .ctx()
+        .data_mut(|d| d.get_temp::<bool>(root_id).unwrap_or(false));
+    let mut selected: Option<usize> = None;
+
+    let text_w = ui
+        .painter()
+        .layout_no_wrap(label.to_owned(), FontId::proportional(13.0), theme.text)
+        .size()
+        .x;
+    let (rect, resp) =
+        ui.allocate_exact_size(egui::vec2(20.0 + text_w + 18.0, 27.0), egui::Sense::click());
+    let painter = ui.painter();
+    painter.rect_filled(
+        rect,
+        theme.radius,
+        if resp.hovered() {
+            theme.surface_hover
+        } else {
+            theme.surface
+        },
+    );
+    painter.rect_stroke(
+        rect,
+        theme.radius,
+        egui::Stroke::new(1.0, theme.border),
+        egui::StrokeKind::Inside,
+    );
+    painter.text(
+        egui::pos2(rect.left() + 10.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        label,
+        FontId::proportional(13.0),
+        theme.text,
+    );
+
+    let cc = egui::pos2(rect.right() - 15.0, rect.center().y);
+    let r = 3.5_f32;
+    let (y_top, y_mid) = if open {
+        (cc.y + r, cc.y - r)
+    } else {
+        (cc.y - r, cc.y + r)
+    };
+    let chev = egui::Stroke::new(1.5, theme.text_muted);
+    painter.line_segment([egui::pos2(cc.x - r, y_top), egui::pos2(cc.x, y_mid)], chev);
+    painter.line_segment([egui::pos2(cc.x, y_mid), egui::pos2(cc.x + r, y_top)], chev);
+
+    if resp.clicked() {
+        open = !open;
+    }
+
+    if open {
+        let popup = egui::Area::new(root_id.with("popup"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(egui::pos2(rect.left(), rect.bottom() + 4.0))
+            .show(ui.ctx(), |ui| {
+                egui::Frame::new()
+                    .fill(theme.panel)
+                    .stroke(egui::Stroke::new(1.0, theme.border))
+                    .corner_radius(theme.radius)
+                    .inner_margin(egui::Margin::same(4))
+                    .show(ui, |ui| {
+                        for (i, item) in items.iter().enumerate() {
+                            let (row, row_resp) = ui.allocate_exact_size(
+                                egui::vec2(ui.available_width(), 26.0),
+                                egui::Sense::click(),
+                            );
+                            if row_resp.hovered() {
+                                ui.painter()
+                                    .rect_filled(row, theme.radius, theme.surface_hover);
+                            }
+                            ui.painter().text(
+                                egui::pos2(row.left() + 8.0, row.center().y),
+                                egui::Align2::LEFT_CENTER,
+                                *item,
+                                FontId::proportional(13.0),
+                                theme.text,
+                            );
+                            if row_resp.clicked() {
+                                selected = Some(i);
+                            }
+                        }
+                    });
+            });
+        let popup_rect = popup.response.rect;
+        let escape = ui.ctx().input(|i| i.key_pressed(egui::Key::Escape));
+        let clicked = ui.ctx().input(|i| i.pointer.primary_clicked());
+        let pointer = ui
+            .ctx()
+            .input(|i| i.pointer.latest_pos())
+            .unwrap_or(egui::Pos2::ZERO);
+        if escape
+            || selected.is_some()
+            || (clicked && !rect.contains(pointer) && !popup_rect.contains(pointer))
+        {
+            open = false;
+        }
+    }
+    ui.ctx().data_mut(|d| d.insert_temp(root_id, open));
+    selected
+}
+
+pub fn toast_card(ui: &mut Ui, text: &str, variant: Variant, t01: f32) {
+    let theme = Theme::get(ui.ctx());
+    let accent = match variant {
+        Variant::Danger => theme.danger,
+        Variant::Warning => theme.warning,
+        Variant::Success => theme.success,
+        _ => theme.primary,
+    };
+    let t = t01.clamp(0.0, 1.0);
+    let slide = (1.0 - t) * 24.0;
+    let mut card_max = ui.available_rect_before_wrap();
+    card_max.min.x += slide;
+    ui.multiply_opacity(t);
+    let shadow = egui::epaint::Shadow {
+        offset: [0, 4],
+        blur: 12,
+        spread: 0,
+        color: Color32::from_black_alpha(80),
+    };
+    ui.scope_builder(egui::UiBuilder::new().max_rect(card_max), |ui| {
+        let out = egui::Frame::new()
+            .fill(theme.panel)
+            .stroke(egui::Stroke::new(
+                1.0,
+                Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 153),
+            ))
+            .corner_radius(theme.radius)
+            .shadow(shadow)
+            .inner_margin(egui::Margin::symmetric(10, 8))
+            .show(ui, |ui| {
+                ui.label(RichText::new(text).size(13.0).color(theme.text));
+            });
+        let fr = out.response.rect;
+        ui.painter().rect_filled(
+            egui::Rect::from_min_max(
+                egui::pos2(fr.left(), fr.top()),
+                egui::pos2(fr.left() + 3.0, fr.bottom()),
+            ),
+            theme.radius,
+            accent,
+        );
+    });
 }

@@ -61,6 +61,7 @@ impl App {
             toasts: Toasts::default(),
             misc_on: true,
             answers: Vec::new(),
+            alert_dismissed: false,
             shown: Page::Theme,
             code: String::from("fn main() {\n    // edit me\n    println!(\"hello\");\n}"),
             dock_state: {
@@ -139,6 +140,7 @@ struct App {
     answers: Vec<Option<usize>>,
     code: String,
     dock_state: egui_kit::DockState<String>,
+    alert_dismissed: bool,
 }
 
 const PAGES: &[(Page, &str)] = &[
@@ -167,7 +169,7 @@ fn content<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
     .inner
 }
 
-/// Page section: title, optional caption, then the demo in a card.
+/// Page section: title, optional caption, then the demo in a full-width card.
 fn section(ui: &mut egui::Ui, title: &str, caption: &str, body: impl FnOnce(&mut egui::Ui)) {
     let t = Theme::get(ui.ctx());
     ui.add_space(18.0);
@@ -182,6 +184,7 @@ fn section(ui: &mut egui::Ui, title: &str, caption: &str, body: impl FnOnce(&mut
         .corner_radius(egui::CornerRadius::same(t.radius as u8))
         .inner_margin(14.0)
         .show(ui, |ui| {
+            // the card spans the whole centered column, not just its content
             ui.set_min_width(ui.available_width());
             body(ui);
         });
@@ -237,17 +240,19 @@ impl eframe::App for App {
             Theme::light().apply(&ctx);
         }
 
+        // -- 44px toolbar: wordmark left, theme toggle right, 1px rule below --
         ui.toolbar("top", |ui| {
             let t = Theme::get(ui.ctx());
-            ui.horizontal(|ui| {
-                ui.heading("egui-kit");
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.label(egui::RichText::new("egui-kit").size(17.0).strong().color(t.text));
                 ui.add_space(8.0);
                 ui.label(
                     egui::RichText::new("gpui-kit components for egui")
-                        .size(13.0)
+                        .size(12.0)
                         .color(t.text_muted),
                 );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(12.0);
                     if ui
                         .kit_button(if self.dark { "Light" } else { "Dark" })
                         .clicked()
@@ -256,34 +261,99 @@ impl eframe::App for App {
                     }
                 });
             });
+            let rect = ui.max_rect();
+            ui.painter().rect_filled(
+                egui::Rect::from_min_size(rect.left_bottom(), egui::vec2(rect.width(), 1.0)),
+                egui::CornerRadius::ZERO,
+                t.border,
+            );
         });
 
         ui.status_bar("status", "ready", "local build");
 
-        egui::Panel::left("nav").resizable(false).exact_size(190.0).show(ui, |ui| {
-            ui.add_space(10.0);
-            let width = ui.available_width() - 16.0;
-            for (page, name) in PAGES {
-                let selected = self.page == *page;
-                if ui
-                    .add_sized(
-                        [width, 28.0],
-                        egui::Button::selectable(selected, egui::RichText::new(*name).size(14.0)),
-                    )
-                    .clicked()
-                {
-                    self.page = *page;
+        // -- 210px nav, panel fill, full-width rows with kit icons --
+        egui::Panel::left("nav").resizable(false).exact_size(210.0).show(ui, |ui| {
+            let t = Theme::get(ui.ctx());
+            egui::Frame::new().fill(t.panel).show(ui, |ui| {
+                ui.add_space(14.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(12.0);
+                    ui.label(
+                        egui::RichText::new("PAGES")
+                            .size(10.0)
+                            .color(t.text_muted),
+                    );
+                });
+                ui.add_space(6.0);
+                for (page, name) in PAGES {
+                    let selected = self.page == *page;
+                    let icon = match page {
+                        Page::Theme => Icon::Dot,
+                        Page::Widgets => Icon::Plus,
+                        Page::Misc => Icon::Minus,
+                        Page::Data => Icon::Search,
+                        Page::Apps => Icon::ChevronRight,
+                        Page::Overlays => Icon::ChevronDown,
+                    };
+                    let width = ui.available_width();
+                    let (rect, response) =
+                        ui.allocate_exact_size(egui::vec2(width, 30.0), egui::Sense::click());
+                    let hovered = response.hovered();
+                    let (fill, label_color) = if selected || hovered {
+                        (t.surface_hover, t.text)
+                    } else {
+                        (egui::Color32::TRANSPARENT, t.text_muted)
+                    };
+                    if selected || hovered {
+                        ui.painter().rect_filled(
+                            rect,
+                            egui::CornerRadius::same(t.radius as u8),
+                            fill,
+                        );
+                    }
+                    if selected {
+                        let bar = egui::Rect::from_min_size(
+                            rect.left_top(),
+                            egui::vec2(3.0, rect.height()),
+                        );
+                        ui.painter()
+                            .rect_filled(bar, egui::CornerRadius::ZERO, t.primary);
+                    }
+                    let indent = 12.0 + if selected { 3.0 } else { 0.0 };
+                    ui.scope_builder(
+                        egui::UiBuilder::new().max_rect(rect),
+                        |ui| {
+                            ui.with_layout(
+                                egui::Layout::left_to_right(egui::Align::Center),
+                                |ui| {
+                                    ui.add_space(indent);
+                                    ui.icon(icon, 20.0, label_color);
+                                    ui.add_space(10.0);
+                                    ui.label(
+                                        egui::RichText::new(*name)
+                                            .size(13.5)
+                                            .color(label_color),
+                                    );
+                                },
+                            );
+                        },
+                    );
+                    if response.clicked() {
+                        self.page = *page;
+                    }
                 }
-                ui.add_space(2.0);
-            }
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                let t = Theme::get(ui.ctx());
-                ui.add_space(10.0);
-                ui.label(
-                    egui::RichText::new("0.1.0 · 65 widgets")
-                        .size(11.0)
-                        .color(t.text_muted),
-                );
+                // version pinned to the bottom of the nav
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    ui.add_space(12.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(12.0);
+                        ui.label(
+                            egui::RichText::new("0.1.0 - 65 widgets")
+                                .size(11.0)
+                                .color(t.text_muted),
+                        );
+                    });
+                });
             });
         });
 
@@ -475,6 +545,10 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
         if ui.stepper(app.step, 4).clicked() {
             app.step = (app.step + 1) % 4;
         }
+        ui.add_space(10.0);
+        if ui.stepper_rail(app.step, 4).clicked() {
+            app.step = (app.step + 1) % 4;
+        }
     });
 
     section(ui, "Pagination", "Prev / numbers / Next, current page filled.", |ui| {
@@ -524,7 +598,7 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
             ui.radio_value(&mut app.ratio, 1, "Medium");
             ui.radio_value(&mut app.ratio, 2, "High");
             ui.switch("notify", &mut app.notify);
-            if ui.menu("Menu", &["Rename", "Duplicate", "Delete"]).is_some_and(|i| i == 2) {
+            if ui.dropdown_menu("m1", "Menu", &["Rename", "Duplicate", "Delete"]).is_some_and(|i| i == 2) {
                 app.notes.clear();
             }
             ui.tooltip("Hover text works", |ui| ui.button("Hover me"));
@@ -569,7 +643,7 @@ fn widgets_page(ui: &mut egui::Ui, app: &mut App) {
             ui.text_input(&mut app.name, "Ada Lovelace");
         });
         ui.form_row("Notes", |ui| {
-            ui.textarea(&mut app.notes, 2);
+            ui.textarea_hint(&mut app.notes, 2, "Anything worth remembering");
         });
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -732,6 +806,21 @@ fn misc_page(ui: &mut egui::Ui, app: &mut App) {
             &format!("answers so far: {:?}", app.answers),
             egui_kit::LabelKind::Small,
         );
+    });
+
+    section(ui, "Dismissable alert", "Fades and collapses when closed.", |ui| {
+        ui.alert_dismissable(
+            "a-demo",
+            "Dismiss me with the x on the right.",
+            Variant::Warning,
+            &mut app.alert_dismissed,
+        );
+        if app.alert_dismissed {
+            ui.add_space(6.0);
+            if ui.button("restore alert").clicked() {
+                app.alert_dismissed = false;
+            }
+        }
     });
 
     section(ui, "Image", "Placeholder when the file is missing.", |ui| {
